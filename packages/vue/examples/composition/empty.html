@@ -1,0 +1,11 @@
+<script src="../../dist/vue.global.js"></script>
+<script>
+    const { reactive, computed } = Vue
+    const r = reactive({})
+    const c = computed(() => r.foo)
+    console.log(c.value)
+    setTimeout(() => {
+        r.foo = 1
+        console.log(c.value)
+    }, 1000)
+</script>

@@ -1,0 +1,19 @@
+<script src="../../dist/vue.global.js"></script>
+<script>
+    const { reactive, computed, effect } = Vue
+    const original = { foo: 'foo', bar: 'bar', ok: true }
+    const observed = reactive(original);
+    const c = computed(() => {
+        if(observed.ok) {
+            return observed.foo;
+        } else {
+            return observed.bar;
+        }
+    })
+    effect(() => {
+        console.log(c.value)
+    });
+    setTimeout(() => {
+        observed.ok = false;
+    }, 500)
+</script>

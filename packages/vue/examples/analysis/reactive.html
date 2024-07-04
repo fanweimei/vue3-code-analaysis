@@ -1,0 +1,16 @@
+<script src="../../dist/vue.global.js"></script>
+<script>
+    const { reactive, computed, effect } = Vue
+    const original = { foo: 1, bar: 2, ok: true }
+    const observed = reactive(original);
+    effect(() => {
+        setTimeout(() => {
+            console.log(observed.foo);
+            console.log(observed.bar)
+        }, 300)
+    });
+    setTimeout(() => {
+        observed.foo = 'foo';
+        observed.bar = 'bar';
+    }, 500)
+</script>

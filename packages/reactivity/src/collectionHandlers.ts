@@ -28,11 +28,30 @@ function get(
 ) {
   // #1772: readonly(reactive(Map)) should return readonly + reactive version
   // of the value
+  /**
+   * （1）关于rawTarget和target不相等的场景：
+   * const map = reactive(new Map())
+    const roMap = readonly(map)
+      map.set(4, { foo: 'bar' })
+      effect(() => {
+          const roMapItem = roMap.get(5);
+          console.log(roMapItem)
+      })
+      setTimeout(() => {
+          map.set(5, 'hello')
+      }, 1000)
+      解释：readonly一个reactive响应对象，虽然roMap是readonly非响应式的，但是因为原始对象是响应式的，所以roMapItem依然是响应式的，很少会这样使用
+
+      （2）关于key和rawKey不相等的场景：key是响应式对象,rawkey是原始对象
+      如果map代理对象中本来包含了key响应对象，那么map.get(key)收集了key和rawKey的依赖关系，set(key, value)的时候会触发key的依赖；
+      如果map代理对象中没有包括key的响应对象，那么set(key, value)会触发rawKey的依赖
+   */
   target = (target as any)[ReactiveFlags.RAW]
   const rawTarget = toRaw(target)
   const rawKey = toRaw(key)
   if (!isReadonly) {
     if (hasChanged(key, rawKey)) {
+      // 如果key也是响应式的对象，那么也要track key
       track(rawTarget, TrackOpTypes.GET, key)
     }
     track(rawTarget, TrackOpTypes.GET, rawKey)
@@ -84,6 +103,7 @@ function add(this: SetTypes, value: unknown) {
 }
 
 function set(this: MapTypes, key: unknown, value: unknown) {
+  // 这里设置需要用原始对象
   value = toRaw(value)
   const target = toRaw(this)
   const { has, get } = getProto(target)
@@ -93,6 +113,7 @@ function set(this: MapTypes, key: unknown, value: unknown) {
     key = toRaw(key)
     hadKey = has.call(target, key)
   } else if (__DEV__) {
+    // key是响应式对象，并且target中包含key的原始对象
     checkIdentityKeys(target, has, key)
   }
 
@@ -241,6 +262,7 @@ function createInstrumentations() {
     get(this: MapTypes, key: unknown) {
       return get(this, key)
     },
+    //获取size先track，从原始对象中获取size
     get size() {
       return size(this as unknown as IterableCollections)
     },
