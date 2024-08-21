@@ -155,15 +155,18 @@ export interface VNode<
    * @internal
    */
   [ReactiveFlags.SKIP]: true
-
+  // 表示 VNode 的类型，可以是组件类型、原生 HTML 标签类型、注释节点、文本节点等; 区分不同类型的 VNode，在后续渲染或更新时采用不同的处理逻辑。
   type: VNodeTypes
+  // 表示与该 VNode 相关的属性或特性，类似于 HTML 元素的属性； 包含传递给组件或元素的各种属性（例如 class、style、自定义属性等），这些属性会在渲染时应用到真实 DOM 或组件实例上。
   props: (VNodeProps & ExtraProps) | null
+  // 表示 VNode 的唯一标识，用于优化 diff 算法。 在 VNode 的更新过程中，key 用于判断哪些节点需要被更新、移动或删除。拥有 key 的 VNode 可以更高效地进行节点复用。
   key: string | number | symbol | null
   ref: VNodeNormalizedRef | null
   /**
    * SFC only. This is assigned on vnode creation using currentScopeId
    * which is set alongside currentRenderingInstance.
    */
+  // 表示与 VNode 关联的作用域 ID。 在使用 `scoped` 样式时，这个 ID 会被附加到元素上，以确保样式作用范围正确。
   scopeId: string | null
   /**
    * SFC only. This is assigned to:
@@ -172,13 +175,20 @@ export interface VNode<
    *   inherit the component's slotScopeIds
    * @internal
    */
+  /**
+   * 当使用 scoped slots（作用域插槽）时，父组件会将数据传递给子组件的插槽。slotScopeIds 用于跟踪这些插槽的作用域 ID，以便在渲染时正确地处理这些插槽。Vue 通过这些 ID 来确保作用域插槽能够正确地绑定到合适的上下文。
+   */
   slotScopeIds: string[] | null
+  // 表示当前 VNode 的子节点，可以是数组、文本或 null。   描述子元素的 VNode，如果有子元素，这个字段会包含这些子元素的 VNode 列表，文本节点则直接以字符串形式表示。
   children: VNodeNormalizedChildren
+  // 表示如果 VNode 是一个组件，该字段会存储组件实例。  用于管理组件的生命周期和状态，例如在 VNode 更新时，可能会通过这个字段访问组件实例并进行相应的更新操作。 
   component: ComponentInternalInstance | null
+  // 存储与 VNode 关联的指令列表   当 VNode 被挂载或更新时，这些指令会被调用来执行相应的逻辑
   dirs: DirectiveBinding[] | null
+  // 与 VNode 关联的过渡效果信息。  如果 VNode 包含过渡效果，这个字段会存储相关的配置和状态，用于在元素进入或离开时执行动画。
   transition: TransitionHooks<HostElement> | null
 
-  // DOM
+  // 表示与 VNode 对应的真实 DOM 元素。  在 VNode 被挂载后，此字段会指向对应的真实 DOM 元素，用于后续的更新或操作。
   el: HostNode | null
   anchor: HostNode | null // fragment anchor
   target: HostElement | null // teleport target
@@ -201,14 +211,18 @@ export interface VNode<
   ssFallback: VNode | null
 
   // optimization only
+  //表示 VNode 的类型标志（flag），通过位运算标记 VNode 是元素、组件、文本等不同类型。  在 VNode 的处理过程中，用来快速判断和区分不同类型的 VNode，以决定如何处理该节点。
   shapeFlag: number
+  // 表示 VNode 的优化标志，用于指示哪些部分在更新时可能会发生变化。  通过该标志，Vue 可以在更新时跳过不必要的 diff 计算，直接更新有变化的部分，从而提升性能。
   patchFlag: number
   /**
    * @internal
+   * 在 Vue 3 中，VNode 中的属性可以是静态的或动态的。静态属性是不会在后续渲染中发生变化的，而动态属性则可能随数据变化而变化。dynamicProps 用于标记那些在后续更新中可能会发生变化的属性，这样 Vue 就可以有选择性地更新这些属性，而不是整个 VNode，从而提高渲染性能
    */
   dynamicProps: string[] | null
   /**
    * @internal
+   * dynamicChildren 用于标记那些包含动态内容的子节点。与 dynamicProps 类似，dynamicChildren 帮助 Vue 优化更新流程。Vue 会优先更新这些动态子节点，而不是整个子节点树，这样可以减少不必要的 DOM 操作，提高渲染效率。
    */
   dynamicChildren: VNode[] | null
 
@@ -218,10 +232,12 @@ export interface VNode<
   /**
    * @internal lexical scope owner instance
    */
+  // 存储与 VNode 相关的上下文对象。  通常用于存储渲染上下文，如当前的组件实例等。
   ctx: ComponentInternalInstance | null
 
   /**
    * @internal attached by v-memo
+   * memo 属性是 Vue 3 中的一种优化手段，通过缓存和复用 VNode，避免不必要的重新渲染，以提升性能。它主要与 v-memo 指令配合使用，用于指示 Vue 仅在特定条件变化时更新节点。
    */
   memo?: any[]
   /**

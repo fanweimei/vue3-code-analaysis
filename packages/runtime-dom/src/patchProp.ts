@@ -27,11 +27,26 @@ export const patchProp: DOMRendererOptions['patchProp'] = (
   unmountChildren,
 ) => {
   const isSVG = namespace === 'svg'
+  /**
+   * dom.setAttribute('class', 'redbg')  dom.className = 'redbg'
+   * 但是性能对比：className > classList > setAttribute
+   */
   if (key === 'class') {
     patchClass(el, nextValue, isSVG)
   } else if (key === 'style') {
+    /**
+     * 设置style的方式有3种：
+     * （1）字符串（添加原有style）
+     * dom.sytle.color = 'red';
+     * dom.sytle.backgroundColor = 'yellow';
+     * (2) setProperty（叠加原有style）
+     * box.style.setProperty('color', 'pink')
+     * （3）cssText（直接覆盖，原有的style会失效）
+     * box.style.cssText = 'color: pink';
+     */
     patchStyle(el, prevValue, nextValue)
   } else if (isOn(key)) {
+    // on开头的事件，排除onUpdate双向绑定的
     // ignore v-model listeners
     if (!isModelListener(key)) {
       patchEvent(el, key, prevValue, nextValue, parentComponent)

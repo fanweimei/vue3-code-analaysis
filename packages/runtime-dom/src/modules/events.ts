@@ -99,6 +99,7 @@ function createInvoker(
     // or events fired from iframes, e.g. #2513)
     // The handler would only fire if the event passed to it was fired
     // AFTER it was attached.
+    // 防止因为事件冒泡导致事件在子级产生的时间小于在父级绑定的时间
     if (!e._vts) {
       e._vts = Date.now()
     } else if (e._vts <= invoker.attached) {

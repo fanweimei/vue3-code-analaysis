@@ -1,0 +1,14 @@
+<script src="../../dist/vue.global.js"></script>
+<script>
+    const { reactive, computed, effect, readonly } = Vue
+    const m = new Map([['id', 1], ['name', 'bob'], ['age', 20]]);
+    const p = reactive(m);
+    effect(() => {
+        for(let [key, value] of p.entries()) {
+            console.log(key, value)
+        }
+    });
+    setTimeout(() => {
+        p.set('interest', 'coding')
+    }, 1000);
+</script>

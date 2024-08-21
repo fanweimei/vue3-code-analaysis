@@ -26,6 +26,7 @@
 </script>
 <!-- DemoGrid component script -->
 <script>
+  const { inject } = Vue;
 const DemoGrid = {
   template: '#grid-template',
   props: {
@@ -66,6 +67,8 @@ const DemoGrid = {
     sortBy(key) {
       this.sortKey = key
       this.sortOrders[key] = this.sortOrders[key] * -1
+      const mname = inject('myname');
+      console.log(mname)
     },
     capitalize(str) {
       return str.charAt(0).toUpperCase() + str.slice(1)
@@ -107,6 +110,7 @@ const app = Vue.createApp({
   }
 });
 app.component('demo-grid', DemoGrid);
+app.provide('myname', 'cat');
 app.mount('#demo')
 </script>
 

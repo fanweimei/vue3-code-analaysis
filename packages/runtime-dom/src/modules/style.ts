@@ -28,6 +28,7 @@ export function patchStyle(el: Element, prev: Style, next: Style) {
         if (cssVarText) {
           ;(next as string) += ';' + cssVarText
         }
+        // 设置style也可以通过[Element].style.cssText = 'background: red'
         style.cssText = next as string
       }
     } else if (prev) {
@@ -67,7 +68,7 @@ function setStyle(
     } else {
       const prefixed = autoPrefix(style, name)
       if (importantRE.test(val)) {
-        // !important
+        // !important 存在important的情况
         style.setProperty(
           hyphenate(prefixed),
           val.replace(importantRE, ''),

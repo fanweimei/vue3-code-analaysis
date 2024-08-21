@@ -2,15 +2,17 @@
 
 <div id="demo">
   <h1>Latest Vue.js Commits</h1>
-  <template v-for="branch in branches">
+  <template v-for="branch in branches" :key="branch.key">
     <input type="radio"
-      :id="branch"
-      :value="branch"
+      ref="branchRefs"
+      :id="branch.key"
+      :value="branch.text"
       name="branch"
       v-model="currentBranch">
-    <label :for="branch">{{ branch }}</label>
+    <label :for="branch.key">{{ branch.text }}</label>
   </template>
   <p>vuejs/core@{{ currentBranch }}</p>
+  <p v-if="currentBranch === 'main'">this is main</p>
   <ul>
     <li v-for="{ html_url, sha, author, commit } in commits">
       <a :href="html_url" target="_blank" class="commit">{{ sha.slice(0, 7) }}</a>
@@ -19,6 +21,7 @@
       at <span class="date">{{ formatDate(commit.author.date) }}</span>
     </li>
   </ul>
+  <div v-bind="obj">hello</div>
 </div>
 
 <script>
@@ -26,9 +29,13 @@ const API_URL = `https://api.github.com/repos/vuejs/core/commits?per_page=3&sha=
 
 Vue.createApp({
   data: () => ({
-    branches: ['main', 'v2-compat'],
+    branches: [{key: 'main', text: 'main'}, {key: 'v2-compat', text: 'v2-compat'}],
     currentBranch: 'main',
-    commits: null
+    commits: null,
+    branchRefs: Vue.ref([]),
+    obj: {
+      'class': 'txt'
+    }
   }),
 
   created() {
@@ -72,5 +79,8 @@ Vue.createApp({
   }
   .author, .date {
     font-weight: bold;
+  }
+  .txt {
+    color: red;
   }
 </style>
