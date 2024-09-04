@@ -199,9 +199,13 @@ export function initProps(
 
   instance.propsDefaults = Object.create(null)
 
+  /**
+   * 处理props和attrs，如果父组件传递的值不存在子组件定义的props中，就会自动转为attrs中，
+   * 并且在这个方法会对value进行类型转换，比如组件的props中的某个key是boolean型，但是父组件传递的是undefined，就会自动转为false
+   *  */
   setFullProps(instance, rawProps, props, attrs)
 
-  // ensure all declared prop keys are present
+  // ensure all declared prop keys are present  组件中定义了的props，但是父组件没有传递，就默认给undefined
   for (const key in instance.propsOptions[0]) {
     if (!(key in props)) {
       props[key] = undefined
@@ -213,6 +217,7 @@ export function initProps(
     validateProps(rawProps || {}, props, instance)
   }
 
+  // 将props包装成shallowReactive浅响应式的对象
   if (isStateful) {
     // stateful
     instance.props = isSSR ? props : shallowReactive(props)
@@ -402,6 +407,7 @@ function setFullProps(
       // prop option names are camelized during normalization, so to support
       // kebab -> camel conversion here we need to camelize the key.
       let camelKey
+      // option指组件中定义的props， props指父组件传递给子组件的属性
       if (options && hasOwn(options, (camelKey = camelize(key)))) {
         if (!needCastKeys || !needCastKeys.includes(camelKey)) {
           props[camelKey] = value
@@ -426,7 +432,9 @@ function setFullProps(
       }
     }
   }
-
+  /**
+   * needCastKeys 的作用： 当 prop 定义了类型（通过 type 选项）并且存在默认值时，Vue 需要在初次解析这些 prop 时检查传入的值是否需要进行类型转换。比如，如果 prop 的类型是 Boolean，但传入的值是 undefined，Vue 需要将其转换为 false。这些需要进行类型转换的 prop 的键名会被添加到 needCastKeys 中。
+   */
   if (needCastKeys) {
     const rawCurrentProps = toRaw(props)
     const castValues = rawCastValues || EMPTY_OBJ

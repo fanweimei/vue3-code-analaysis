@@ -3,10 +3,10 @@ import { type Awaited, NOOP, isArray } from '@vue/shared'
 import { type ComponentInternalInstance, getComponentName } from './component'
 
 export interface SchedulerJob extends Function {
-  id?: number
-  pre?: boolean
-  active?: boolean
-  computed?: boolean
+  id?: number //用于标识任务的唯一 ID。这个 ID 通常用于对任务进行排序或去重，以确保任务在队列中的唯一性或特定的执行顺序。
+  pre?: boolean //表示该任务是否需要优先执行。在 Vue 的调度器中，有些任务需要在普通任务之前执行，比如某些生命周期钩子函数或 watch 的回调函数。
+  active?: boolean //表示该任务是否处于活动状态。如果设置为 false，则该任务可能会被跳过或暂停执行。这在某些情况下用于控制任务的执行，比如暂停某个特定的任务。
+  computed?: boolean //表示该任务是否是由 computed（计算属性）生成的。这用于区分不同类型的任务，因为计算属性有其特定的更新逻辑。
   /**
    * Indicates whether the effect is allowed to recursively trigger itself
    * when managed by the scheduler.
@@ -21,25 +21,34 @@ export interface SchedulerJob extends Function {
    * triggers itself again, it's likely intentional and it is the user's
    * responsibility to perform recursive state mutation that eventually
    * stabilizes (#1727).
+   * 表示任务是否允许递归触发自身。在 Vue 的调度系统中，默认情况下任务是不能递归触发自身的，因为这可能会导致无限循环，尤其是在某些数组操作
    */
   allowRecurse?: boolean
   /**
    * Attached by renderer.ts when setting up a component's render effect
    * Used to obtain component information when reporting max recursive updates.
    * dev only.
+   * 由 renderer.ts 在设置组件的渲染效果时附加，用于获取组件的信息。这个属性通常用于开发模式下，在报告最大递归更新次数时使用。
    */
   ownerInstance?: ComponentInternalInstance
 }
 
 export type SchedulerJobs = SchedulerJob | SchedulerJob[]
 
-let isFlushing = false
-let isFlushPending = false
+let isFlushing = false //标识当前是否正在刷新队列。
+let isFlushPending = false //标识是否有待处理的任务刷新请求。
 
-const queue: SchedulerJob[] = []
-let flushIndex = 0
-
+const queue: SchedulerJob[] = [] //任务队列，所有待执行的任务都存储在这个数组中。
+let flushIndex = 0 //当前正在处理的任务索引。
+/**
+ * 这是一个数组，用于存储待执行的后置回调函数（post-flush callbacks）。这些回调函数通常会在所有同步任务（如组件更新、DOM 操作等）完成之后再执行。
+ 在调度系统中，某些任务（如 watch 的回调函数，或者 nextTick 的回调函数）需要在组件更新完成后再执行。Vue 会把这些任务添加到 pendingPostFlushCbs 中，并在适当的时机一次性执行。
+*/
 const pendingPostFlushCbs: SchedulerJob[] = []
+/**
+ * 这是当前正在执行的后置回调任务的列表。它的初始值为 null，表示当前没有正在执行的后置回调任务。
+ * 在执行 pendingPostFlushCbs 中的回调任务时，会将这些任务赋值给 activePostFlushCbs，表示这些任务正在被处理。这么做的目的是为了确保在回调函数执行时，不会再往 pendingPostFlushCbs 中添加新的任务，避免重复执行。
+ */
 let activePostFlushCbs: SchedulerJob[] | null = null
 let postFlushIndex = 0
 
@@ -161,6 +170,20 @@ export function flushPreFlushCbs(
     }
   }
 }
+
+/**
+ *在 Vue 的调度系统中，后置回调函数通常是在所有同步任务（例如 DOM 更新）执行完成后才被触发。以下是后置回调执行的简化流程：
+
+收集回调任务：在某些情况下（例如 watch 的回调、nextTick 等），会将回调任务添加到 pendingPostFlushCbs 中。
+
+触发执行：当所有同步任务执行完成后，Vue 会调用一个函数（如 flushPostFlushCbs）来处理 pendingPostFlushCbs 中的所有任务。
+
+执行回调任务：
+
+将 pendingPostFlushCbs 中的任务复制到 activePostFlushCbs 中，并清空 pendingPostFlushCbs。
+逐个执行 activePostFlushCbs 中的任务，并使用 postFlushIndex 追踪当前执行的位置。
+执行完成后，重置 postFlushIndex 和 activePostFlushCbs。
+ */
 
 export function flushPostFlushCbs(seen?: CountMap) {
   if (pendingPostFlushCbs.length) {

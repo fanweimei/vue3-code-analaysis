@@ -23,6 +23,7 @@
     </tbody>
   </table>
   <p v-else>No matches found.</p>
+  <slot name="footer"></slot>
 </script>
 <!-- DemoGrid component script -->
 <script>
@@ -90,6 +91,9 @@ const DemoGrid = {
     :data="gridData"
     :columns="gridColumns"
     :filter-key="searchQuery">
+    <template #footer>
+      你好！小黄人
+    </template>
   </demo-grid>
 </div>
 <!-- App script -->

@@ -305,7 +305,11 @@ export const isReservedPrefix = (key: string) => key === '_' || key === '$'
 const hasSetupBinding = (state: Data, key: string) =>
   state !== EMPTY_OBJ && !state.__isScriptSetup && hasOwn(state, key)
 
-  // 这块代码待解析
+// 这块代码待解析
+/**
+ * 这段代码定义了 PublicInstanceProxyHandlers 和 RuntimeCompiledPublicInstanceProxyHandlers 两个代理处理器，
+ * 这些处理器是 Vue 3 中用于管理组件实例上下文 (ctx) 的关键部分。它们通过拦截属性访问、设置、检查属性是否存在等操作，来增强组件的行为。
+ */
 export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   get({ _: instance }: ComponentRenderContext, key: string) {
     const { ctx, setupState, data, props, accessCache, type, appContext } =
@@ -324,6 +328,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     // prototype) to memoize what access type a key corresponds to.
     let normalizedProps
     if (key[0] !== '$') {
+      // 通过 accessCache 来缓存属性访问类型，以减少后续访问的开销。
       const n = accessCache![key]
       if (n !== undefined) {
         switch (n) {
@@ -363,6 +368,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     let cssModule, globalProperties
     // public $xxx properties
     if (publicGetter) {
+      // 公共属性：检查 publicPropertiesMap 中是否有对应的公共 $ 开头的属性，如 $attrs、$slots 等，并进行特殊处理。
       if (key === '$attrs') {
         track(instance, TrackOpTypes.GET, key)
         __DEV__ && markAttrsAccessed()
@@ -372,6 +378,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       return publicGetter(instance)
     } else if (
       // css module (injected by vue-loader)
+      // CSS 模块：如果使用了 vue-loader 注入的 CSS 模块，返回对应的样式值。
       (cssModule = type.__cssModules) &&
       (cssModule = cssModule[key])
     ) {
@@ -382,6 +389,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       return ctx[key]
     } else if (
       // global properties
+      // 如果属性在全局配置 appContext.config.globalProperties 中存在，返回该属性。
       ((globalProperties = appContext.config.globalProperties),
       hasOwn(globalProperties, key))
     ) {
@@ -428,6 +436,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     value: any,
   ): boolean {
     const { data, setupState, ctx } = instance
+    // setupState：如果属性在 setupState 中存在，则直接设置值
     if (hasSetupBinding(setupState, key)) {
       setupState[key] = value
       return true
@@ -436,16 +445,20 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       setupState.__isScriptSetup &&
       hasOwn(setupState, key)
     ) {
+      // 如果属性是 <script setup> 中定义的绑定，会在开发环境中发出警告并阻止修改。
       warn(`Cannot mutate <script setup> binding "${key}" from Options API.`)
       return false
     } else if (data !== EMPTY_OBJ && hasOwn(data, key)) {
+      // data：如果属性在 data 中存在，直接更新 data 中的值。
       data[key] = value
       return true
     } else if (hasOwn(instance.props, key)) {
+      // 防止修改 props：如果试图修改 props，会在开发环境中发出警告，因为 props 是只读的。
       __DEV__ && warn(`Attempting to mutate prop "${key}". Props are readonly.`)
       return false
     }
     if (key[0] === '$' && key.slice(1) in instance) {
+      // $ 开头属性：防止修改 $ 开头的公共属性
       __DEV__ &&
         warn(
           `Attempting to mutate public property "${key}". ` +
@@ -453,6 +466,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
         )
       return false
     } else {
+      // 默认处理：如果属性不在上述任何部分，则尝试在 ctx 中设置属性
       if (__DEV__ && key in instance.appContext.config.globalProperties) {
         Object.defineProperty(ctx, key, {
           enumerable: true,
@@ -472,6 +486,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     }: ComponentRenderContext,
     key: string,
   ) {
+    //依次检查：accessCache、data、setupState、props、ctx、publicPropertiesMap、appContext.config.globalProperties 中是否存在该属性。
     let normalizedProps
     return (
       !!accessCache![key] ||
@@ -489,10 +504,12 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     key: string,
     descriptor: PropertyDescriptor,
   ) {
+    // 缓存清理：如果属性描述符包含 get 方法，清除缓存
     if (descriptor.get != null) {
       // invalidate key cache of a getter based property #5417
       target._.accessCache![key] = 0
     } else if (hasOwn(descriptor, 'value')) {
+      // 属性设置：如果描述符中包含 value，则通过 set 捕获器进行设置。
       this.set!(target, key, descriptor.value, null)
     }
     return Reflect.defineProperty(target, key, descriptor)
@@ -509,10 +526,34 @@ if (__DEV__ && !__TEST__) {
   }
 }
 
+// RuntimeCompiledPublicInstanceProxyHandlers 是在 PublicInstanceProxyHandlers 的基础上扩展而来的，它添加了一些特殊处理，以支持运行时编译的组件实例。
+/**
+ * 在 Vue 3 中，"运行时编译"（Runtime Compilation）指的是在应用程序运行时，动态地将模板字符串编译成渲染函数的过程。
+ * 这与"预编译"（Ahead-of-Time Compilation, AOT）相对应，后者是在构建时将模板编译为渲染函数。
+ * 
+ * 模板编译：
+ * Vue 的模板语言是一种类似 HTML 的语法，它允许你声明式地描述 UI。为了将这种模板转换成 JavaScript 渲染函数（即如何在浏览器中构建和更新 DOM 的函数），Vue 需要一个编译过程。
+  渲染函数可以直接操作虚拟 DOM，从而生成最终的 UI。
+ * 预编译：
+ * 通常情况下，在开发过程中，Vue 的模板会在构建阶段（使用工具如 Vue CLI）被编译为渲染函数。这种预编译方式更高效，因为在运行时不需要再进行编译，直接执行渲染函数就可以生成 UI。
+    预编译的优点是可以减小包体积并提高性能。
+
+    场景：
+    内容管理系统 (CMS)：允许用户输入和编辑 HTML 模板，系统需要在前端动态渲染这些模板。
+    动态组件：在应用中根据某些条件动态生成模板并渲染。
+    开发环境：在开发过程中实时编辑模板，并立即看到效果。
+
+    总结：
+    Vue 3 中的运行时编译是一种在应用运行时动态将模板字符串编译成渲染函数的机制。它为开发者提供了灵活性，允许处理动态模板，但相对预编译模式，它需要牺牲一些性能和包体积。
+ */
 export const RuntimeCompiledPublicInstanceProxyHandlers = /*#__PURE__*/ extend(
   {},
   PublicInstanceProxyHandlers,
   {
+    /**
+     * 快速路径：如果属性是 Symbol.unscopables，直接返回 undefined，这是为了处理 with 语句块中的快速路径。
+     * 委托：将其他的属性访问操作委托给 PublicInstanceProxyHandlers 的 get 方法。
+     */
     get(target: ComponentRenderContext, key: string) {
       // fast path for unscopables when using `with` block
       if ((key as any) === Symbol.unscopables) {
@@ -520,6 +561,7 @@ export const RuntimeCompiledPublicInstanceProxyHandlers = /*#__PURE__*/ extend(
       }
       return PublicInstanceProxyHandlers.get!(target, key, target)
     },
+    // 特殊处理：对于以 _ 开头的属性，或者不在全局允许范围内的属性，会在开发环境中发出警告。
     has(_: ComponentRenderContext, key: string) {
       const has = key[0] !== '_' && !isGloballyAllowed(key)
       if (__DEV__ && !has && PublicInstanceProxyHandlers.has!(_, key)) {
@@ -589,6 +631,7 @@ export function exposeSetupStateOnRenderContext(
 ) {
   const { ctx, setupState } = instance
   Object.keys(toRaw(setupState)).forEach(key => {
+    // 不是在script上setup的，那么返回的值放入ctx中
     if (!setupState.__isScriptSetup) {
       if (isReservedPrefix(key[0])) {
         warn(

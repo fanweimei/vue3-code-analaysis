@@ -72,9 +72,11 @@ export function renderComponentRoot(
     if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
       // withProxy is a proxy with a different `has` trap only for
       // runtime-compiled render functions using `with` block.
+      // 运行时编译模板就是用withProxy，
       const proxyToUse = withProxy || proxy
       // 'this' isn't available in production builds with `<script setup>`,
       // so warn if it's used in dev.
+      // <script setup>中不能使用this
       const thisProxy =
         __DEV__ && setupState.__isScriptSetup
           ? new Proxy(proxyToUse!, {
@@ -88,6 +90,7 @@ export function renderComponentRoot(
               },
             })
           : proxyToUse
+      // 执行render函数后返回的虚拟节点
       result = normalizeVNode(
         render!.call(
           thisProxy,
@@ -101,7 +104,21 @@ export function renderComponentRoot(
       )
       fallthroughAttrs = attrs
     } else {
-      // functional
+      // functional 函数式组件
+      /**
+       * // 定义函数式组件
+       * 函数式组件是一种无需实例化的轻量级组件，通常用于创建简单、无状态的 UI 元素。函数式组件只接收 props 和上下文，并返回一个虚拟 DOM 树。
+          const MyButton = (props, { slots }) => {
+            return h(
+              'button',
+              {
+                class: ['btn', props.type ? `btn-${props.type}` : 'btn-default'],
+                onClick: props.onClick
+              },
+              slots.default ? slots.default() : 'Click me'
+            )
+          }
+       */
       const render = Component as FunctionalComponent
       // in dev, mark attrs accessed if optional props (attrs === props)
       if (__DEV__ && attrs === props) {
@@ -351,11 +368,22 @@ const isElementRoot = (vnode: VNode) => {
   )
 }
 
+/**
+ * 这段代码实现了 shouldUpdateComponent 函数，用于判断 Vue 3 中一个组件的 VNode（虚拟节点）是否需要更新。
+ * 该函数在渲染优化过程中非常重要，决定了组件是否需要重新渲染。
+ * 
+ * prevVNode：当前组件实例的旧虚拟节点。
+  nextVNode：当前组件实例的新虚拟节点。
+  optimized：表示当前更新是否经过了编译器的优化，标记了“动态”或“完全属性”的变化。
+
+  shouldUpdateComponent 是 Vue 3 中用来决定组件是否需要更新的函数。它通过对比新旧虚拟节点的 props、children、指令、过渡、以及 patchFlag 等信息来判断组件是否需要重新渲染。这个函数在 Vue 的渲染优化中起到了至关重要的作用，避免了不必要的更新，提高了性能。
+ */
 export function shouldUpdateComponent(
   prevVNode: VNode,
   nextVNode: VNode,
   optimized?: boolean,
 ): boolean {
+  // patchFlag：用于标记 VNode 的变化类型（例如属性、插槽等），以便于优化更新。
   const { props: prevProps, children: prevChildren, component } = prevVNode
   const { props: nextProps, children: nextChildren, patchFlag } = nextVNode
   const emits = component!.emitsOptions
@@ -363,21 +391,26 @@ export function shouldUpdateComponent(
   // Parent component's render function was hot-updated. Since this may have
   // caused the child component's slots content to have changed, we need to
   // force the child to update as well.
+  // 如果组件处于热更新状态，并且有子元素存在，则强制更新组件。
   if (__DEV__ && (prevChildren || nextChildren) && isHmrUpdating) {
     return true
   }
 
   // force child update for runtime directive or transition on component vnode.
+  // 如果新虚拟节点中包含指令 (dirs) 或过渡 (transition)，则强制更新组件。
   if (nextVNode.dirs || nextVNode.transition) {
     return true
   }
 
+  // 优化模式下的更新判断
   if (optimized && patchFlag >= 0) {
+    // 表示插槽内容发生了动态变化，需要更新。
     if (patchFlag & PatchFlags.DYNAMIC_SLOTS) {
       // slot content that references values that might have changed,
       // e.g. in a v-for
       return true
     }
+    // 示所有 props 都需要检查，如果旧的 props 为空，而新的 props 存在，则需要更新；否则通过 hasPropsChanged 函数来判断 props 是否发生了变化。
     if (patchFlag & PatchFlags.FULL_PROPS) {
       if (!prevProps) {
         return !!nextProps
@@ -385,6 +418,7 @@ export function shouldUpdateComponent(
       // presence of this flag indicates props are always non-null
       return hasPropsChanged(prevProps, nextProps!, emits)
     } else if (patchFlag & PatchFlags.PROPS) {
+      // 表示某些特定的 props 需要检查，逐一比较新的 props 中的动态属性与旧的 props，如果有变化且不是 emits 事件，则需要更新。
       const dynamicProps = nextVNode.dynamicProps!
       for (let i = 0; i < dynamicProps.length; i++) {
         const key = dynamicProps[i]
@@ -397,25 +431,31 @@ export function shouldUpdateComponent(
       }
     }
   } else {
+    // 手动编写渲染函数的处理
     // this path is only taken by manually written render functions
     // so presence of any children leads to a forced update
     if (prevChildren || nextChildren) {
+      // 如果存在子元素，并且新的子元素不稳定（$stable 为 false），则需要更新。
       if (!nextChildren || !(nextChildren as any).$stable) {
         return true
       }
     }
+    // 如果旧的和新的 props 相同，不需要更新。
     if (prevProps === nextProps) {
       return false
     }
+    // 如果旧的 props 为 null 或 undefined，而新的 props 存在，则需要更新
     if (!prevProps) {
       return !!nextProps
     }
+    // 如果新的 props 为空，但旧的 props 存在，则需要更新
     if (!nextProps) {
       return true
     }
+    // 最后，调用 hasPropsChanged 函数检查 props 是否发生变化来决定是否更新。
     return hasPropsChanged(prevProps, nextProps, emits)
   }
-
+  //如果没有触发前面的任一更新条件，则返回 false，表示不需要更新组件
   return false
 }
 
