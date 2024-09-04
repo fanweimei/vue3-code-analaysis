@@ -162,6 +162,7 @@ export interface ComponentInternalOptions {
    */
   __name?: string
 }
+// 函数式的组件类型
 
 export interface FunctionalComponent<
   P = {},
@@ -193,6 +194,7 @@ export interface ClassComponent {
  * values, e.g. checking if its a function or not. This is mostly for internal
  * implementation code.
  */
+// ConcreteComponent 组件类型定义（函数式组件、组件配置对象）
 export type ConcreteComponent<
   Props = {},
   RawBindings = any,
@@ -219,8 +221,8 @@ export type Component<
   S extends Record<string, any> = any,
 > =
   | ConcreteComponent<Props, RawBindings, D, C, M, E, S>
-  | ComponentPublicInstanceConstructor<Props>
-
+  | ComponentPublicInstanceConstructor<Props> //用于标识一个 Vue 组件实例的构造函数的类型，这个构造函数会生成一个组件的公共实例。
+// 组件配置对象
 export type { ComponentOptions }
 
 type LifecycleHook<TFn = Function> = TFn[] | null
@@ -261,6 +263,7 @@ export type InternalRenderFunction = {
 /**
  * We expose a subset of properties on the internal instance as they are
  * useful for advanced external libraries and tools.
+ * 组件的实例对象
  */
 export interface ComponentInternalInstance {
   uid: number // 组件实例的唯一标识符

@@ -1,0 +1,17 @@
+<script src="../../dist/vue.global.js"></script>
+<div id="demo">
+
+</div>
+<script>
+    const { reactive, computed, effect, defineAsyncComponent } = Vue
+    let resolve;
+    const Foo = defineAsyncComponent(
+      () =>
+        new Promise(r => {
+          resolve = r
+        }),
+    )
+    const API_URL = `https://api.github.com/repos/vuejs/core/commits?per_page=3&sha=`
+
+Vue.createApp(Foo).mount('#demo')
+</script>
