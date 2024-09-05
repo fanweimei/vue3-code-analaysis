@@ -33,6 +33,7 @@ const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1)
 
 const DemoGrid = {
   template: '#grid-template',
+  name: "DemoGrid",
   props: {
     data: Array,
     columns: Array,
@@ -82,25 +83,67 @@ const DemoGrid = {
 }
 </script>
 
+<!-- DemoGrid component template -->
+<script type="text/x-template" id="grid-text">
+  <div>
+    <button @click="addCount">add</button>
+    {{state.count}}
+  </div>
+</script>
+<!-- DemoGrid component script -->
+<script>
+
+
+const DemoText = {
+  template: '#grid-text',
+  name: "DemoText",
+  props: {
+
+  },
+  setup(props) {
+    const state = reactive({
+      count: 0
+    });
+
+    function addCount(key) {
+      state.count = state.count + 1;
+    }
+
+    return {
+      state,
+      addCount
+    }
+  }
+}
+</script>
+
 <!-- App template (in DOM) -->
 <div id="demo">
   <form id="search">
     Search <input name="query" v-model="searchQuery">
   </form>
-  <demo-grid
+  <button @click="toggle()">toggle</button>
+  <keep-alive :include="['DemoGrid', 'DemoText']">
+    <demo-grid
+      v-if="flag"
     :data="gridData"
     :columns="gridColumns"
     :filter-key="searchQuery">
     <template #footer>
       你好！小黄人
     </template>
-  </demo-grid>
+    </demo-grid>
+    <demo-text v-else></demo-text>
+  </keep-alive>
 </div>
 <!-- App script -->
 <script>
+  const { createApp, ref, watchEffect, KeepAlive } = Vue
 Vue.createApp({
   components: {
-    DemoGrid
+    DemoGrid,
+    KeepAlive,
+    DemoText
   },
   data: () => ({
     searchQuery: '',
@@ -111,7 +154,17 @@ Vue.createApp({
       { name: 'Jackie Chan', power: 7000 },
       { name: 'Jet Li', power: 8000 }
     ]
-  })
+  }),
+  setup(props) {
+    const flag = ref(true);
+    function toggle() {
+      flag.value = !flag.value;
+    }
+    return {
+      toggle,
+      flag
+    }
+  }
 }).mount('#demo')
 </script>
 
