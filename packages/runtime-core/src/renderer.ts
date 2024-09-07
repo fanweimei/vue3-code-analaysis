@@ -1418,7 +1418,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
-          // 挂在根节点
+          // 挂载根节点
           patch(
             null,
             subTree,
@@ -1466,7 +1466,8 @@ function baseCreateRenderer(
 
         // activated hook for keep-alive roots.
         // #1742 activated hook must be accessed after first render
-        // since the hook may be injected by a child keep-alive
+        // since the hook may be injected by a child keep-alive 
+        // 在KeepAlive组件中标志了COMPONENT_SHOULD_KEEP_ALIVE，或者父组件是异步组件也标志了COMPONENT_SHOULD_KEEP_ALIVE，执行组件activated钩子函数
         if (
           initialVNode.shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE ||
           (parent &&
