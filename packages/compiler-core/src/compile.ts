@@ -91,8 +91,7 @@ export function baseCompile(
   })
   // 解析html判断（词法语法分析），最后会生成一个树形结构
   const ast = isString(source) ? baseParse(source, resolvedOptions) : source
-  const [nodeTransforms, directiveTransforms] =
-    getBaseTransformPreset(prefixIdentifiers)
+  const [nodeTransforms, directiveTransforms] = getBaseTransformPreset(prefixIdentifiers)
 
   if (!__BROWSER__ && options.isTS) {
     const { expressionPlugins } = options

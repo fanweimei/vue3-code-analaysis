@@ -39,9 +39,9 @@ import {
 } from 'entities/lib/decode.js'
 
 export enum ParseMode {
-  BASE,
-  HTML,
-  SFC,
+  BASE, // 基础解析方式
+  HTML, // html解析方式，可以解析html标签和html实体
+  SFC, // single file component  单文件组件格式 包括template、 script、 style三个部分内容
 }
 
 export enum CharCodes {
@@ -84,57 +84,58 @@ const defaultDelimitersOpen = new Uint8Array([123, 123]) // "{{"
 const defaultDelimitersClose = new Uint8Array([125, 125]) // "}}"
 
 /** All the states the tokenizer can be in. */
+// State 枚举用于描述状态机的不同状态
 export enum State {
-  Text = 1,
+  Text = 1, // 普通文本的状态，当解析器处于此状态时，遇到的字符会被视为普通文本，并直接输出
 
-  // interpolation
-  InterpolationOpen,
-  Interpolation,
-  InterpolationClose,
+  // interpolation 插值
+  InterpolationOpen, // 进入插值表达式的启示状态。通常对应于{{
+  Interpolation, // 插值表达式的内部状态，在这里解析器解析{{ 和 }}之间的表达式内容
+  InterpolationClose, // 插值表达式的结束状态。通常对应于}} 的检测
 
-  // Tags
-  BeforeTagName, // After <
-  InTagName,
-  InSelfClosingTag,
-  BeforeClosingTagName,
-  InClosingTagName,
-  AfterClosingTagName,
+  // Tags  标签解析
+  BeforeTagName, // After < 表示在检测到<之后，准备开始解析标签名称的状态
+  InTagName, // 正在解析标签名称的状态。例如，解析<div 中的div
+  InSelfClosingTag, // 检测到自闭合标签时的状态，通常对应于 />
+  BeforeClosingTagName,// 在解析结束标签之前的状态，通常是检测到</后
+  InClosingTagName, // 结束标签名称的状态，比如</div  中的div
+  AfterClosingTagName, // 结束标签名称解析完成后的状态
 
   // Attrs
-  BeforeAttrName,
-  InAttrName,
-  InDirName,
-  InDirArg,
-  InDirDynamicArg,
-  InDirModifier,
-  AfterAttrName,
-  BeforeAttrValue,
-  InAttrValueDq, // "
-  InAttrValueSq, // '
-  InAttrValueNq,
+  BeforeAttrName, // 准备解析属性名称的状态
+  InAttrName, // 解析属性名称的状态
+  InDirName, // 解析指令名称的状态 如v-bind
+  InDirArg, // 解析指令参数的状态 v-bind:arg
+  InDirDynamicArg, // 解析动态指令参数的状态 比如v-bind:[dynamicArg]
+  InDirModifier, // 解析指令修饰符的撞他v-bind.sync
+  AfterAttrName, // 解析完属性名的状态
+  BeforeAttrValue, // 阿欢解析属性值状态
+  InAttrValueDq, // " 解析双引号包裹的属性值状态
+  InAttrValueSq, // ' 解析单引号包括的属性值状态
+  InAttrValueNq, // 解析没有引号包裹的属性值状态
 
   // Declarations
-  BeforeDeclaration, // !
-  InDeclaration,
+  BeforeDeclaration, // ! 准备解析声明的状态，例如<!DOCTYPE
+  InDeclaration, // 正在解析声明的状态
 
   // Processing instructions
-  InProcessingInstruction, // ?
+  InProcessingInstruction, // ?  处理XML或类似文件中的处理指令状态 <?...?>
 
   // Comments & CDATA
-  BeforeComment,
-  CDATASequence,
-  InSpecialComment,
-  InCommentLike,
+  BeforeComment, // 转变进入注释解析状态 <!--
+  CDATASequence, // 解析CDATA序列状态，通常是<![CDATA[
+  InSpecialComment, // 处理特殊注释的状态，比如vue特有的注释
+  InCommentLike, // 解析注释或者类似注释结构的状态
 
   // Special tags
-  BeforeSpecialS, // Decide if we deal with `<script` or `<style`
-  BeforeSpecialT, // Decide if we deal with `<title` or `<textarea`
-  SpecialStartSequence,
-  InRCDATA,
+  BeforeSpecialS, // Decide if we deal with `<script` or `<style` 特殊标签
+  BeforeSpecialT, // Decide if we deal with `<title` or `<textarea` 特殊标签
+  SpecialStartSequence,// 特殊标签开始的状态，例如<script>或者<style>之后
+  InRCDATA,// 解析器在RCDATA，比如<textarea>或者<title>中的状态
 
-  InEntity,
+  InEntity, // 解析HTML实体的状态
 
-  InSFCRootTagName,
+  InSFCRootTagName, // 在Vue单文件组件SFC解析时，检测根标签名称的状态
 }
 
 /**
@@ -159,6 +160,7 @@ export function isWhitespace(c: number): boolean {
 }
 
 function isEndOfTagSection(c: number): boolean {
+  // 在inTagName标签内状态时，如果遇到/>或者>或者空格，表示标签名读取结束
   return c === CharCodes.Slash || c === CharCodes.Gt || isWhitespace(c)
 }
 
@@ -227,7 +229,7 @@ export const Sequences = {
 
 export default class Tokenizer {
   /** The current state the tokenizer is in. */
-  public state = State.Text
+  public state = State.Text // 默认文本状态
   /** The read buffer. */
   private buffer = ''
   /** The beginning of the section that is currently being read. */
@@ -284,6 +286,7 @@ export default class Tokenizer {
    * newline positions. We know the index is always going to be an already
    * processed index, so all the newlines up to this index should have been
    * recorded.
+   * 由index计算出是第几行几列
    */
   public getPos(index: number): Position {
     let line = 1
@@ -308,16 +311,16 @@ export default class Tokenizer {
   }
 
   private stateText(c: number): void {
-    if (c === CharCodes.Lt) {
-      if (this.index > this.sectionStart) {
+    if (c === CharCodes.Lt) { // 遇到<进入标签名开始状态
+      if (this.index > this.sectionStart) { // 将<之前的文本元素作为一个文本节点加入到当前父元素的children中
         this.cbs.ontext(this.sectionStart, this.index)
       }
-      this.state = State.BeforeTagName
-      this.sectionStart = this.index
-    } else if (!__BROWSER__ && c === CharCodes.Amp) {
+      this.state = State.BeforeTagName // 开启标签开始状态
+      this.sectionStart = this.index // sectionStart表示这部分内容开始的位置，用来截断一段文本、元素标签名
+    } else if (!__BROWSER__ && c === CharCodes.Amp) { // 遇到&进入实体状态
       this.startEntity()
-    } else if (!this.inVPre && c === this.delimiterOpen[0]) {
-      this.state = State.InterpolationOpen
+    } else if (!this.inVPre && c === this.delimiterOpen[0]) { // 遇到{{进入插值文本状态
+      this.state = State.InterpolationOpen 
       this.delimiterIndex = 0
       this.stateInterpolationOpen(c)
     }
@@ -533,44 +536,57 @@ export default class Tokenizer {
   }
 
   private stateBeforeTagName(c: number): void {
-    if (c === CharCodes.ExclamationMark) {
-      this.state = State.BeforeDeclaration
-      this.sectionStart = this.index + 1
-    } else if (c === CharCodes.Questionmark) {
+    if (c === CharCodes.ExclamationMark) {// 如果是<!开头的
+      this.state = State.BeforeDeclaration // 进入解析声明状态
+      this.sectionStart = this.index + 1 // sectionStart标志位下个字符索引
+    } else if (c === CharCodes.Questionmark) { // 如果是<?开头的，进入xml解析状态
       this.state = State.InProcessingInstruction
       this.sectionStart = this.index + 1
-    } else if (isTagStartChar(c)) {
-      this.sectionStart = this.index
+    } else if (isTagStartChar(c)) { // 如果是字母a-zA-Z，说明是标签名开始解析状态，比如<div
+      this.sectionStart = this.index // sectionStart调整为当前索引值，用来截取整个标签名
       if (this.mode === ParseMode.BASE) {
         // no special tags in base mode
-        this.state = State.InTagName
+        this.state = State.InTagName // 进入在标签中的状态
       } else if (this.inSFCRoot) {
         // SFC mode + root level
         // - everything except <template> is RAWTEXT
         // - <template> with lang other than html is also RAWTEXT
         this.state = State.InSFCRootTagName
       } else if (!this.inXML) {
+        /**
+         * 在解析 HTML 文档时，浏览器使用一种称为“状态机”的机制来读取和处理不同的标签和内容。在这个过程中，有两种特别的状态，分别是 RAWTEXT 和 RCDATA，它们用于处理 HTML 中不同类型的内容。
+         * 这两种状态的主要区别在于它们如何处理内容中的字符数据，特别是 HTML 实体。
+         */
         // HTML mode
         // - <script>, <style> RAWTEXT
+        /**
+         * 在 RAWTEXT 状态下，浏览器会将所有的文本内容都原封不动地当作纯文本进行解析，而不会尝试解析其中的任何 HTML 实体（如 &amp;）。
+         * 在 RAWTEXT 状态中，浏览器不会认为文本内容中出现的 < 符号是标签的开始，而只是纯文本的一部分，直到遇到对应的结束标签。
+         */
         // - <title>, <textarea> RCDATA
+        /**
+         * 在 RCDATA 状态下，浏览器会对内容中的字符数据进行解析，但只会解析 HTML 实体。例如，&amp; 会被解析为 &。
+         * 类似于 RAWTEXT，在 RCDATA 状态下，文本内容中的 < 符号也不会被当作标签的开始，而是作为文本的一部分，直到遇到对应的结束标签。
+         */
+        // 将字符c转为小写形式
         const lower = c | 0x20
-        if (lower === 116 /* t */) {
+        if (lower === 116 /* t */) { // 如果是t，<title>, <textarea>，进入RCDATA解析状态，也就是里面的标签不解析，文本原样输出
           this.state = State.BeforeSpecialT
-        } else {
-          this.state =
-            lower === 115 /* s */ ? State.BeforeSpecialS : State.InTagName
+        } else { // 如果是s，，<script>、<style>，进入RAWTEXT解析状态
+          this.state = lower === 115 /* s */ ? State.BeforeSpecialS : State.InTagName
         }
       } else {
         this.state = State.InTagName
       }
-    } else if (c === CharCodes.Slash) {
+    } else if (c === CharCodes.Slash) { // 如果是</开头，进入结标签名状态
       this.state = State.BeforeClosingTagName
-    } else {
+    } else { // 其它无法识别的都是作为文本处理
       this.state = State.Text
       this.stateText(c)
     }
   }
   private stateInTagName(c: number): void {
+    // 比如<div> <img/>  <div class=...标签标inTagName状态结束，需要处理标签元素
     if (isEndOfTagSection(c)) {
       this.handleTagName(c)
     }
@@ -585,15 +601,18 @@ export default class Tokenizer {
     }
   }
   private handleTagName(c: number) {
+    // 获取了当前currentOpenTag，创建了tag对应的元素节点
     this.cbs.onopentagname(this.sectionStart, this.index)
     this.sectionStart = -1
-    this.state = State.BeforeAttrName
+    this.state = State.BeforeAttrName // 进入属性名开始解析状态
     this.stateBeforeAttrName(c)
   }
+
+  // 进入标签名结束解析状态，比如</div>
   private stateBeforeClosingTagName(c: number): void {
-    if (isWhitespace(c)) {
+    if (isWhitespace(c)) { // 空格什么都不做
       // Ignore
-    } else if (c === CharCodes.Gt) {
+    } else if (c === CharCodes.Gt) { // 遇到>符号，说明标签名结束解析状态结束，又重新进入文本状态
       if (__DEV__ || !__BROWSER__) {
         this.cbs.onerr(ErrorCodes.MISSING_END_TAG_NAME, this.index)
       }
@@ -601,45 +620,53 @@ export default class Tokenizer {
       // Ignore
       this.sectionStart = this.index + 1
     } else {
-      this.state = isTagStartChar(c)
-        ? State.InClosingTagName
+      // 结束标签名解析状态进入
+      this.state = isTagStartChar(c) // 是否是大小写字母
+        ? State.InClosingTagName // inClosingTagName状态
         : State.InSpecialComment
       this.sectionStart = this.index
     }
   }
+  // 结束标签名称的状态
   private stateInClosingTagName(c: number): void {
-    if (c === CharCodes.Gt || isWhitespace(c)) {
-      this.cbs.onclosetag(this.sectionStart, this.index)
+    if (c === CharCodes.Gt || isWhitespace(c)) { // 遇到>获取空格，表示结束标签名称解析完毕
+      this.cbs.onclosetag(this.sectionStart, this.index) // sectionStart是用来存储一个片段的起始位置，比如开始标签名、结束标签名、一段文本
       this.sectionStart = -1
-      this.state = State.AfterClosingTagName
+      this.state = State.AfterClosingTagName // 关闭标签结束状态
       this.stateAfterClosingTagName(c)
     }
   }
   private stateAfterClosingTagName(c: number): void {
     // Skip everything until ">"
-    if (c === CharCodes.Gt) {
+    if (c === CharCodes.Gt) {// 关闭标签名称解析结束，进入文本状态
       this.state = State.Text
       this.sectionStart = this.index + 1
     }
   }
   private stateBeforeAttrName(c: number): void {
-    if (c === CharCodes.Gt) {
+    if (c === CharCodes.Gt) { // 如果是>，比如<div>，表示标签名open状态解析结束，没有属性
       this.cbs.onopentagend(this.index)
+      // 开始标签名解析结束后，进入InRCDATA状态或文本状态
       if (this.inRCDATA) {
         this.state = State.InRCDATA
       } else {
         this.state = State.Text
       }
       this.sectionStart = this.index + 1
-    } else if (c === CharCodes.Slash) {
+    } else if (c === CharCodes.Slash) {// 如果是遇到/ 说明是<img/>这样的场景，说明是半闭合元素
       this.state = State.InSelfClosingTag
       if ((__DEV__ || !__BROWSER__) && this.peek() !== CharCodes.Gt) {
+        // 如是开发环境，/后面不是>符号就报错，说明语法不正确
         this.cbs.onerr(ErrorCodes.UNEXPECTED_SOLIDUS_IN_TAG, this.index)
       }
     } else if (c === CharCodes.Lt && this.peek() === CharCodes.Slash) {
       // special handling for </ appearing in open tag state
       // this is different from standard HTML parsing but makes practical sense
       // especially for parsing intermediate input state in IDEs.
+      /**
+       * 在 Vue 3 的解析过程中，为了兼容开发者在使用 IDE（集成开发环境）时的中间输入状态，Vue 做了一些不同于标准 HTML 解析的处理。比如，当开发者在 IDE 中输入不完整的代码时，
+       * 可能会出现诸如 </ 这样的未完成语句，这时的代码是处于编辑状态，还未形成完整的 HTML 结构。
+       */
       this.cbs.onopentagend(this.index)
       this.state = State.BeforeTagName
       this.sectionStart = this.index
@@ -653,12 +680,15 @@ export default class Tokenizer {
       this.handleAttrStart(c)
     }
   }
+
+  // 解析属性开始的状态
   private handleAttrStart(c: number) {
-    if (c === CharCodes.LowerV && this.peek() === CharCodes.Dash) {
-      this.state = State.InDirName
+    // v-if/v-for
+    if (c === CharCodes.LowerV && this.peek() === CharCodes.Dash) { // v-开头 表示进入指令状态
+      this.state = State.InDirName // 指令名称解析状态
       this.sectionStart = this.index
     } else if (
-      c === CharCodes.Dot ||
+      c === CharCodes.Dot || // . : @ #
       c === CharCodes.Colon ||
       c === CharCodes.At ||
       c === CharCodes.Number
@@ -699,14 +729,14 @@ export default class Tokenizer {
     }
   }
   private stateInDirName(c: number): void {
-    if (c === CharCodes.Eq || isEndOfTagSection(c)) {
+    if (c === CharCodes.Eq || isEndOfTagSection(c)) { // 遇到=或者/>或者空格，表示指令名称解析结束
       this.cbs.ondirname(this.sectionStart, this.index)
       this.handleAttrNameEnd(c)
-    } else if (c === CharCodes.Colon) {
+    } else if (c === CharCodes.Colon) { // 遇到：表示进入指令参数解析状态
       this.cbs.ondirname(this.sectionStart, this.index)
       this.state = State.InDirArg
       this.sectionStart = this.index + 1
-    } else if (c === CharCodes.Dot) {
+    } else if (c === CharCodes.Dot) { // 遇到.，指令修复符解析，比如v-bind.sync
       this.cbs.ondirname(this.sectionStart, this.index)
       this.state = State.InDirModifier
       this.sectionStart = this.index + 1
@@ -749,12 +779,12 @@ export default class Tokenizer {
   }
   private handleAttrNameEnd(c: number): void {
     this.sectionStart = this.index
-    this.state = State.AfterAttrName
+    this.state = State.AfterAttrName // 进入属性名称解析结束状态，
     this.cbs.onattribnameend(this.index)
-    this.stateAfterAttrName(c)
+    this.stateAfterAttrName(c) // 属性名称解析结束后，解析属性值
   }
   private stateAfterAttrName(c: number): void {
-    if (c === CharCodes.Eq) {
+    if (c === CharCodes.Eq) { // 遇到等于号，比如v-for="xxx"，进入属性值解析
       this.state = State.BeforeAttrValue
     } else if (c === CharCodes.Slash || c === CharCodes.Gt) {
       this.cbs.onattribend(QuoteType.NoValue, this.sectionStart)
@@ -766,16 +796,18 @@ export default class Tokenizer {
       this.handleAttrStart(c)
     }
   }
+
+  // 属性值解析
   private stateBeforeAttrValue(c: number): void {
-    if (c === CharCodes.DoubleQuote) {
-      this.state = State.InAttrValueDq
+    if (c === CharCodes.DoubleQuote) { // 双引号"
+      this.state = State.InAttrValueDq //双引号属性值
       this.sectionStart = this.index + 1
-    } else if (c === CharCodes.SingleQuote) {
-      this.state = State.InAttrValueSq
+    } else if (c === CharCodes.SingleQuote) { // 单引号'
+      this.state = State.InAttrValueSq //单引号属性值
       this.sectionStart = this.index + 1
-    } else if (!isWhitespace(c)) {
+    } else if (!isWhitespace(c)) { // 其它不是空格情况，就是没有引号包裹的属性值，比如width=100
       this.sectionStart = this.index
-      this.state = State.InAttrValueNq
+      this.state = State.InAttrValueNq 
       this.stateInAttrValueNoQuotes(c) // Reconsume token
     }
   }
@@ -787,14 +819,16 @@ export default class Tokenizer {
         quote === CharCodes.DoubleQuote ? QuoteType.Double : QuoteType.Single,
         this.index + 1,
       )
-      this.state = State.BeforeAttrName
-    } else if (!__BROWSER__ && c === CharCodes.Amp) {
+      this.state = State.BeforeAttrName // 属性值解析过后，再次进入属性名的解析
+    } else if (!__BROWSER__ && c === CharCodes.Amp) { // 实体解析
       this.startEntity()
     }
   }
+  // 双引号属性值解析
   private stateInAttrValueDoubleQuotes(c: number): void {
     this.handleInAttrValue(c, CharCodes.DoubleQuote)
   }
+  // 单引号属性值解析
   private stateInAttrValueSingleQuotes(c: number): void {
     this.handleInAttrValue(c, CharCodes.SingleQuote)
   }
@@ -919,13 +953,14 @@ export default class Tokenizer {
    * Iterates through the buffer, calling the function corresponding to the current state.
    *
    * States that are more likely to be hit are higher up, as a performance improvement.
+   * 解析模板
    */
   public parse(input: string) {
     this.buffer = input
     while (this.index < this.buffer.length) {
       const c = this.buffer.charCodeAt(this.index)
       if (c === CharCodes.NewLine) {
-        this.newlines.push(this.index)
+        this.newlines.push(this.index) // 用来计算loc，就是每个元素第几行几列，方便出错时bug跟踪
       }
       switch (this.state) {
         case State.Text: {

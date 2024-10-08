@@ -5,12 +5,12 @@ import { decodeHtmlBrowser } from './decodeHtmlBrowser'
 
 export const parserOptions: ParserOptions = {
   parseMode: 'html',
-  isVoidTag,
-  isNativeTag: tag => isHTMLTag(tag) || isSVGTag(tag) || isMathMLTag(tag),
-  isPreTag: tag => tag === 'pre',
-  decodeEntities: __BROWSER__ ? decodeHtmlBrowser : undefined,
+  isVoidTag, // 半闭合标签，比如input img hr
+  isNativeTag: tag => isHTMLTag(tag) || isSVGTag(tag) || isMathMLTag(tag), //是否是浏览器原生有的标签原生
+  isPreTag: tag => tag === 'pre', // 是否是pre
+  decodeEntities: __BROWSER__ ? decodeHtmlBrowser : undefined, // 浏览器模式下，还需要处理实体
 
-  isBuiltInComponent: tag => {
+  isBuiltInComponent: tag => { // 是否是内置组件
     if (tag === 'Transition' || tag === 'transition') {
       return TRANSITION
     } else if (tag === 'TransitionGroup' || tag === 'transition-group') {

@@ -92,11 +92,15 @@ let currentAttrEndIndex = -1
 let inPre = 0
 let inVPre = false
 let currentVPreBoundary: ElementNode | null = null
+// 父元素栈，栈中的第一个元素当前的父元素
 const stack: ElementNode[] = []
 
+// 通过状态机的工作原理、模板编译器，将模板字符串切割为一个个 Token，通过token构建一颗AST抽象语法树
+// stack是栈
 const tokenizer = new Tokenizer(stack, {
   onerr: emitError,
 
+  // 具体处理文本元素节点
   ontext(start, end) {
     onText(getSlice(start, end), start, end)
   },
@@ -133,11 +137,19 @@ const tokenizer = new Tokenizer(stack, {
     })
   },
 
+  // 获取开始标签元素节点
   onopentagname(start, end) {
     const name = getSlice(start, end)
+    /**
+     * loc 属性用于表示 AST（抽象语法树）节点在源代码中的位置信息，帮助开发者在编译阶段更好地追踪和调试代码。
+     * 具体来说，loc 包含了节点在模板中的起始和结束位置，以及相关的位置信息，这对于错误报告、代码映射、和源代码生成非常重要
+     * start：节点在源代码中的起始位置（即标签开始的位置）。
+      end：节点在源代码中的结束位置（即标签结束的位置）。
+      source：节点对应的源代码片段（可以是字符串）。
+     */
     currentOpenTag = {
-      type: NodeTypes.ELEMENT,
-      tag: name,
+      type: NodeTypes.ELEMENT, // 元素节点
+      tag: name, // 标签名
       ns: currentOptions.getNamespace(name, stack[0], currentOptions.ns),
       tagType: ElementTypes.ELEMENT, // will be refined on tag close
       props: [],
@@ -147,28 +159,39 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 标签名开始状态解析关闭 比如<div>
   onopentagend(end) {
     endOpenTag(end)
   },
 
+  // 结束标签名获取
   onclosetag(start, end) {
     const name = getSlice(start, end)
     if (!currentOptions.isVoidTag(name)) {
       let found = false
       for (let i = 0; i < stack.length; i++) {
+        // 
         const e = stack[i]
         if (e.tag.toLowerCase() === name.toLowerCase()) {
           found = true
+          /**
+           * 给了一个容错率，理论上应该是匹配stack栈中第一个元素标签，才是正确的，如果不是匹配第一个元素，给出错误提示
+           * 比如<div><div><span></div></span></div>
+           * 在遇到第一个</div>的时候，匹配的是栈中的第二个元素 
+           */
           if (i > 0) {
             emitError(ErrorCodes.X_MISSING_END_TAG, stack[0].loc.start.offset)
           }
           for (let j = 0; j <= i; j++) {
             const el = stack.shift()!
-            onCloseTag(el, end, j < i)
+            onCloseTag(el, end, j < i) // 重新更新元素的loc位置信息
           }
           break
         }
       }
+      /**
+       * 如果从stack栈中没有找到对应的元素，说明语法是由错误的，比如<div>hello</span></div> 解析到span结束标签的时候栈中没有与之匹配的，就报错
+       */
       if (!found) {
         emitError(ErrorCodes.X_INVALID_END_TAG, backTrack(start, CharCodes.Lt))
       }
@@ -195,16 +218,17 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 解析指令名称
   ondirname(start, end) {
     const raw = getSlice(start, end)
     const name =
-      raw === '.' || raw === ':'
+      raw === '.' || raw === ':' // .或者：开头说明是绑定变量，比如:name="xx"
         ? 'bind'
-        : raw === '@'
+        : raw === '@' // @开头，说明是事件绑定，比如@click
           ? 'on'
-          : raw === '#'
+          : raw === '#' // #开头，说明是插槽，比如:#slot
             ? 'slot'
-            : raw.slice(2)
+            : raw.slice(2) // 否则就是其它指令，vue默认指令格式v-开头，所以截取两个字符
 
     if (!inVPre && name === '') {
       emitError(ErrorCodes.X_MISSING_DIRECTIVE_NAME, start)
@@ -219,10 +243,10 @@ const tokenizer = new Tokenizer(stack, {
         loc: getLoc(start),
       }
     } else {
-      currentProp = {
+      currentProp = { // 创建一个指令 prop
         type: NodeTypes.DIRECTIVE,
-        name,
-        rawName: raw,
+        name, // 比如v-for
+        rawName: raw, // 比如for
         exp: undefined,
         arg: undefined,
         modifiers: raw === '.' ? ['prop'] : [],
@@ -292,12 +316,12 @@ const tokenizer = new Tokenizer(stack, {
   onattribnameend(end) {
     const start = currentProp!.loc.start.offset
     const name = getSlice(start, end)
-    if (currentProp!.type === NodeTypes.DIRECTIVE) {
+    if (currentProp!.type === NodeTypes.DIRECTIVE) { 
       currentProp!.rawName = name
     }
     // check duplicate attrs
     if (
-      currentOpenTag!.props.some(
+      currentOpenTag!.props.some( // 判断当前解析的标签元素中的props是否已经存在同样的指令，是就报错
         p => (p.type === NodeTypes.DIRECTIVE ? p.rawName : p.name) === name,
       )
     ) {
@@ -307,10 +331,10 @@ const tokenizer = new Tokenizer(stack, {
 
   onattribend(quote, end) {
     if (currentOpenTag && currentProp) {
-      // finalize end pos
+      // finalize end pos 完善整个prop的路径，比如完整的，应该是v-for="branch in branches"
       setLocEnd(currentProp.loc, end)
 
-      if (quote !== QuoteType.NoValue) {
+      if (quote !== QuoteType.NoValue) { // 没有引号的可能是boolean或者number类型，如果是字符串类型肯定是有引号的，所以需要处理实体（属性值里面需要处理实体）
         if (__BROWSER__ && currentAttrValue.includes('&')) {
           currentAttrValue = currentOptions.decodeEntities!(
             currentAttrValue,
@@ -319,7 +343,7 @@ const tokenizer = new Tokenizer(stack, {
         }
 
         if (currentProp.type === NodeTypes.ATTRIBUTE) {
-          // assign value
+          // assign value 处理属性
 
           // condense whitespaces in class
           if (currentProp!.name === 'class') {
@@ -350,7 +374,7 @@ const tokenizer = new Tokenizer(stack, {
             tokenizer.enterRCDATA(toCharCodes(`</template`), 0)
           }
         } else {
-          // directive
+          // directive 处理指令
           let expParseMode = ExpParseMode.Normal
           if (!__BROWSER__) {
             if (currentProp.name === 'for') {
@@ -364,6 +388,7 @@ const tokenizer = new Tokenizer(stack, {
               expParseMode = ExpParseMode.Statements
             }
           }
+          // 属性值被作为一个表达式
           currentProp.exp = createExp(
             currentAttrValue,
             false,
@@ -565,10 +590,11 @@ function getSlice(start: number, end: number) {
 }
 
 function endOpenTag(end: number) {
-  if (tokenizer.inSFCRoot) {
+  if (tokenizer.inSFCRoot) { // 如果是<template>标签
     // in SFC mode, generate locations for root-level tags' inner content.
     currentOpenTag!.innerLoc = getLoc(end + 1, end + 1)
   }
+  // 将当前元素节点添加到stack栈顶元素的children中
   addNode(currentOpenTag!)
   const { tag, ns } = currentOpenTag!
   if (ns === Namespaces.HTML && currentOptions.isPreTag(tag)) {
@@ -577,6 +603,7 @@ function endOpenTag(end: number) {
   if (currentOptions.isVoidTag(tag)) {
     onCloseTag(currentOpenTag!, end)
   } else {
+    // 将当前元素放入栈中第一个元素，所以当前父元素就刚创建的节点元素
     stack.unshift(currentOpenTag!)
     if (ns === Namespaces.SVG || ns === Namespaces.MATH_ML) {
       tokenizer.inXML = true
@@ -592,6 +619,7 @@ function onText(content: string, start: number, end: number) {
       content = currentOptions.decodeEntities!(content, false)
     }
   }
+  // stack 是父级元素栈，记录当前父级元素，默认开始只有根元素
   const parent = stack[0] || currentRoot
   const lastNode = parent.children[parent.children.length - 1]
   if (lastNode?.type === NodeTypes.TEXT) {
@@ -599,6 +627,7 @@ function onText(content: string, start: number, end: number) {
     lastNode.content += content
     setLocEnd(lastNode.loc, end)
   } else {
+    // 加入一个文本元素节点
     parent.children.push({
       type: NodeTypes.TEXT,
       content,
@@ -607,15 +636,23 @@ function onText(content: string, start: number, end: number) {
   }
 }
 
+// 闭合元素，元素标签结束，更新元素的位置信息，loc记录的是一个元素节点完整的起始位置和结束位置，比如<h1>hello</h1>，source就是<h1>hello</h1>
+/**
+ * 用于在解析 HTML 模板时处理闭合标签的逻辑。当解析器遇到一个闭合标签（如 </div>）时，会调用这个函数来完成节点的解析，处理相关的语法和兼容性检查，并更新内部状态。
+ */
 function onCloseTag(el: ElementNode, end: number, isImplied = false) {
   // attach end position
   if (isImplied) {
+    // isImplied为true，说明是标签有错误匹配的情况，比如<div><span></div> 解析到</div>时，会依次推出栈顶元素span和div，推出span时，isImplied就是ture
+    // isImplied 参数为 true 时，表示这是一个隐式闭合标签（如 <div><span></div> 中的 <span>）。对于这种情况，需要将标签的结束位置回溯（backTrack）到正确的位置。
     // implied close, end should be backtracked to close
     setLocEnd(el.loc, backTrack(end, CharCodes.Lt))
   } else {
+    // 否则，直接将标签的结束位置设置为 end + 1。
     setLocEnd(el.loc, end + 1)
   }
 
+  // 如果当前标签是单文件组件（SFC）的根标签，则更新 innerLoc 的结束位置，并根据子节点的位置计算 innerLoc.source，以便稍后生成代码或调试信息。
   if (tokenizer.inSFCRoot) {
     // SFC root tag, resolve inner end
     if (el.children.length) {
@@ -630,21 +667,25 @@ function onCloseTag(el: ElementNode, end: number, isImplied = false) {
   }
 
   // refine element type
+  //根据当前标签的名称和上下文，进一步确定其类型（tagType），如 SLOT、TEMPLATE、或 COMPONENT。这些类型决定了该节点在编译器中的处理方式。
   const { tag, ns } = el
   if (!inVPre) {
     if (tag === 'slot') {
-      el.tagType = ElementTypes.SLOT
+      el.tagType = ElementTypes.SLOT // slot类型
     } else if (isFragmentTemplate(el)) {
-      el.tagType = ElementTypes.TEMPLATE
-    } else if (isComponent(el)) {
+      el.tagType = ElementTypes.TEMPLATE // <template>类型 比如template 上面有v-if/v-for
+    } else if (isComponent(el)) { // 组件
       el.tagType = ElementTypes.COMPONENT
     }
   }
 
   // whitespace management
+  // 如果当前不在 RCDATA（如 <textarea> 或 <title>）上下文中，则对子节点中的空白字符进行压缩和规范化，减少不必要的空白。
   if (!tokenizer.inRCDATA) {
+    // 处理空白字符
     el.children = condenseWhitespace(el.children, el.tag)
   }
+  // 如果当前标签是 <pre>，在离开该标签时，更新相关的状态（inPre、inVPre）以停止 <pre> 模式下的处理。
   if (ns === Namespaces.HTML && currentOptions.isPreTag(tag)) {
     inPre--
   }
@@ -652,6 +693,7 @@ function onCloseTag(el: ElementNode, end: number, isImplied = false) {
     inVPre = tokenizer.inVPre = false
     currentVPreBoundary = null
   }
+  // 如果解析器之前处于 XML 模式中，但现在进入了 HTML 上下文，重置 inXML 标志。
   if (
     tokenizer.inXML &&
     (stack[0] ? stack[0].ns : currentOptions.ns) === Namespaces.HTML
@@ -811,6 +853,8 @@ function isUpperCase(c: number) {
 }
 
 const windowsNewlineRE = /\r\n/g
+// 用于在解析 Vue 模板时，对模板中的文本节点进行空白字符的处理。其目的是根据配置对空白字符进行压缩、删除或规范化，以优化生成的模板代码。
+// condenseWhitespace 函数的主要作用是根据配置对模板中的空白字符进行压缩和清理，以优化生成的 AST（抽象语法树）。特别是在不处于 <pre> 标签中时，它会根据条件删除无意义的空白节点，或者将连续的空白字符压缩为单个空格。
 function condenseWhitespace(
   nodes: TemplateChildNode[],
   tag?: string,
@@ -820,7 +864,9 @@ function condenseWhitespace(
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i]
     if (node.type === NodeTypes.TEXT) {
+      // 如果不在 <pre> 标签中，则对空白字符进行压缩和删除处理。<pre> 标签中的内容通常保留所有的空白字符。
       if (!inPre) {
+        // 如果文本节点内容全为空白字符，则进一步检查是否应该删除这个节点。
         if (isAllWhitespace(node.content)) {
           const prev = nodes[i - 1]?.type
           const next = nodes[i + 1]?.type
@@ -829,6 +875,12 @@ function condenseWhitespace(
           // - (condense mode) the whitespace is between two comments, or:
           // - (condense mode) the whitespace is between comment and element, or:
           // - (condense mode) the whitespace is between two elements AND contains newline
+          /**
+           * 如果节点是首个或末尾节点。
+           * 如果处于压缩模式，并且空白节点位于两个注释之间，或位于注释和元素之间，或位于两个元素之间且包含换行符。
+           * 如果满足删除条件，删除该节点（即将其置为 null）。
+              否则，将该空白节点的内容压缩为一个空格字符 ' '。
+           */
           if (
             !prev ||
             !next ||
@@ -849,16 +901,19 @@ function condenseWhitespace(
         } else if (shouldCondense) {
           // in condense mode, consecutive whitespaces in text are condensed
           // down to a single space.
+          // 对非全空白的文本节点，进行空白字符的压缩，即将连续的多个空白字符压缩为单个空格。
           node.content = condense(node.content)
         }
       } else {
         // #6410 normalize windows newlines in <pre>:
         // in SSR, browsers normalize server-rendered \r\n into a single \n
         // in the DOM
+        // 对 <pre> 标签中的文本内容，将 Windows 样式的换行符 \r\n 替换为单个 \n。
         node.content = node.content.replace(windowsNewlineRE, '\n')
       }
     }
   }
+  // 如果当前正在处理 <pre> 标签，按照 HTML 规范，移除开头的换行符。
   if (inPre && tag && currentOptions.isPreTag(tag)) {
     // remove leading newline per html spec
     // https://html.spec.whatwg.org/multipage/grouping-content.html#the-pre-element
@@ -867,6 +922,7 @@ function condenseWhitespace(
       first.content = first.content.replace(/^\r?\n/, '')
     }
   }
+  // 如果有节点被标记为 null，则通过 filter(Boolean) 过滤掉这些节点，返回处理后的节点数组。
   return removedWhitespace ? nodes.filter(Boolean) : nodes
 }
 
@@ -1018,6 +1074,7 @@ function reset() {
   stack.length = 0
 }
 
+// options就是上下文
 export function baseParse(input: string, options?: ParserOptions): RootNode {
   reset()
   currentInput = input
@@ -1063,6 +1120,7 @@ export function baseParse(input: string, options?: ParserOptions): RootNode {
     tokenizer.delimiterClose = toCharCodes(delimiters[1])
   }
 
+  // 创建一个根节点，children就是用来存放解析模板后的元素
   const root = (currentRoot = createRoot([], input))
   tokenizer.parse(currentInput)
   root.loc = getLoc(0, input.length)

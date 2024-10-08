@@ -1,6 +1,7 @@
 import { ElementTypes, type NodeTransform, NodeTypes } from '@vue/compiler-core'
 import { DOMErrorCodes, createDOMCompilerError } from '../errors'
 
+// template模板中不能包含script和style
 export const ignoreSideEffectTags: NodeTransform = (node, context) => {
   if (
     node.type === NodeTypes.ELEMENT &&

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+	</head>
+	<body>
+		<script src="compiler.js"></script>
+		<script src="parser.js"></script>
+		<script>
+			const str = `
+				<div style="display: flex;">
+					<span class="avatar" @click="showDesc">
+						<label>头像：</label>
+						<img width=100 src="http://aa.png" />
+					</span>
+					<span class="name">
+						<label>姓名：</label>
+						<i>{{ person.name }}</i>
+					</span>
+				</div>
+			`;
+			const obj = parse(str);
+			console.log(obj)
+		</script>
+	</body>
+</html>

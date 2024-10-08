@@ -24,7 +24,7 @@ import { extend } from '@vue/shared'
 export { parserOptions }
 
 export const DOMNodeTransforms: NodeTransform[] = [
-  transformStyle,
+  transformStyle, // 处理内敛style样式
   ...(__DEV__ ? [transformTransition] : []),
 ]
 
@@ -38,12 +38,13 @@ export const DOMDirectiveTransforms: Record<string, DirectiveTransform> = {
 }
 
 export function compile(
-  src: string | RootNode,
+  src: string | RootNode, // template标签之内的模板
   options: CompilerOptions = {},
 ): CodegenResult {
   return baseCompile(
     src,
     extend({}, parserOptions, options, {
+      // 插件化结构，用来处理不同的元素节点
       nodeTransforms: [
         // ignore <script> and <tag>
         // this is not put inside DOMNodeTransforms because that list is used
@@ -57,7 +58,7 @@ export function compile(
         DOMDirectiveTransforms,
         options.directiveTransforms || {},
       ),
-      transformHoist: __BROWSER__ ? null : stringifyStatic,
+      transformHoist: __BROWSER__ ? null : stringifyStatic, // 静态提升、预字符串化
     }),
   )
 }

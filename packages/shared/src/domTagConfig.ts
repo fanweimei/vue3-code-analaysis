@@ -56,5 +56,6 @@ export const isMathMLTag = /*#__PURE__*/ makeMap(MATH_TAGS)
 /**
  * Compiler only.
  * Do NOT use in runtime code paths unless behind `__DEV__` flag.
+ * __PURE__ 注释 用于标识一个函数调用是“纯”的，即该函数的调用没有副作用。这意味着该函数不会修改外部状态，其输出完全由输入决定，并且如果函数的返回值没有被使用，编译器可以安全地删除这个函数调用
  */
 export const isVoidTag = /*#__PURE__*/ makeMap(VOID_TAGS)
