@@ -292,9 +292,10 @@ export default class Tokenizer {
     let line = 1
     let column = index + 1
     for (let i = this.newlines.length - 1; i >= 0; i--) {
+      // 从后面往前找到最近一个小于当前索引的值
       const newlineIndex = this.newlines[i]
       if (index > newlineIndex) {
-        line = i + 2
+        line = i + 2 //+2是因为i从0开始，进入循环，有/n至少是从第二行开始算
         column = index - newlineIndex
         break
       }
@@ -906,14 +907,16 @@ export default class Tokenizer {
       this.stateInTagName(c) // Consume the token again
     }
   }
+
+  // 对t开头的标签元素的处理
   private stateBeforeSpecialT(c: number): void {
     const lower = c | 0x20
-    if (lower === Sequences.TitleEnd[3]) {
+    if (lower === Sequences.TitleEnd[3]) { // </title
       this.startSpecial(Sequences.TitleEnd, 4)
-    } else if (lower === Sequences.TextareaEnd[3]) {
-      this.startSpecial(Sequences.TextareaEnd, 4)
+    } else if (lower === Sequences.TextareaEnd[3]) { // </textarea
+      this.startSpecial(Sequences.TextareaEnd, 4) // <template 模板的时候也会进入这个函数
     } else {
-      this.state = State.InTagName
+      this.state = State.InTagName // 否则就还是普通元素处理
       this.stateInTagName(c) // Consume the token again
     }
   }

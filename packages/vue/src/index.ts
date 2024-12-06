@@ -39,6 +39,7 @@ function getCache(options?: CompilerOptions) {
   return c
 }
 
+// 把模板编译成render渲染函数
 function compileToFunction(
   template: string | HTMLElement,
   options?: CompilerOptions,

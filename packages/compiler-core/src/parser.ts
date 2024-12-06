@@ -622,6 +622,7 @@ function onText(content: string, start: number, end: number) {
   // stack 是父级元素栈，记录当前父级元素，默认开始只有根元素
   const parent = stack[0] || currentRoot
   const lastNode = parent.children[parent.children.length - 1]
+  // 如果上个节点就是文本节点，直接更新上一个节点
   if (lastNode?.type === NodeTypes.TEXT) {
     // merge
     lastNode.content += content
@@ -799,12 +800,13 @@ function isFragmentTemplate({ tag, props }: ElementNode): boolean {
   return false
 }
 
+// 判断是否时组件：标签名是component、大写、是vue内置组件标签名、不是html元素的标签元素
 function isComponent({ tag, props }: ElementNode): boolean {
   if (currentOptions.isCustomElement(tag)) {
     return false
   }
   if (
-    tag === 'component' ||
+    tag === 'component' || 
     isUpperCase(tag.charCodeAt(0)) ||
     isCoreComponent(tag) ||
     currentOptions.isBuiltInComponent?.(tag) ||
