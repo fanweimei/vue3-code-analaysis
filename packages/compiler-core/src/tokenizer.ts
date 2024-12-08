@@ -331,17 +331,18 @@ export default class Tokenizer {
   public delimiterClose: Uint8Array = defaultDelimitersClose
   private delimiterIndex = -1
 
+  //遇到{{，进入插值文本的处理
   private stateInterpolationOpen(c: number): void {
-    if (c === this.delimiterOpen[this.delimiterIndex]) {
-      if (this.delimiterIndex === this.delimiterOpen.length - 1) {
+    if (c === this.delimiterOpen[this.delimiterIndex]) { 
+      if (this.delimiterIndex === this.delimiterOpen.length - 1) {////然后进入第二个{{
         const start = this.index + 1 - this.delimiterOpen.length
-        if (start > this.sectionStart) {
+        if (start > this.sectionStart) { // 如果插值前面有文本，进入Text状态，会重置sectionStart为index，如果插值{{符号前面有文本，start就会大于sectionStart，创建一个文本节点
           this.cbs.ontext(this.sectionStart, start)
         }
         this.state = State.Interpolation
         this.sectionStart = start
       } else {
-        this.delimiterIndex++
+        this.delimiterIndex++ // 遇到第一个{，只是让delimiterIndex++
       }
     } else if (this.inRCDATA) {
       this.state = State.InRCDATA
@@ -352,17 +353,19 @@ export default class Tokenizer {
     }
   }
 
+  // 插值状态中，一直遇到}}，进入插值关闭，处理插值
   private stateInterpolation(c: number): void {
     if (c === this.delimiterClose[0]) {
       this.state = State.InterpolationClose
-      this.delimiterIndex = 0
+      this.delimiterIndex = 0 // 让delimiterIndex重置到0
       this.stateInterpolationClose(c)
     }
   }
 
+  // 插值关闭状态处理
   private stateInterpolationClose(c: number) {
-    if (c === this.delimiterClose[this.delimiterIndex]) {
-      if (this.delimiterIndex === this.delimiterClose.length - 1) {
+    if (c === this.delimiterClose[this.delimiterIndex]) { // 如果是遇到}，说明插值表达式结束了
+      if (this.delimiterIndex === this.delimiterClose.length - 1) { //遇到第二个{{才会处理
         this.cbs.oninterpolation(this.sectionStart, this.index + 1)
         if (this.inRCDATA) {
           this.state = State.InRCDATA
@@ -371,7 +374,7 @@ export default class Tokenizer {
         }
         this.sectionStart = this.index + 1
       } else {
-        this.delimiterIndex++
+        this.delimiterIndex++ //第一次只是加1
       }
     } else {
       this.state = State.Interpolation
@@ -477,7 +480,7 @@ export default class Tokenizer {
       if (cc === CharCodes.NewLine) {
         this.newlines.push(this.index)
       }
-      if (cc === c) {
+      if (cc === c) { // 找到下一个匹配的双引号或者单引号，index也更新了，返回true
         return true
       }
     }
@@ -743,13 +746,14 @@ export default class Tokenizer {
       this.sectionStart = this.index + 1
     }
   }
+  // 指令参数的处理，比如v-bind:id，id就是v-bind指令的参数
   private stateInDirArg(c: number): void {
     if (c === CharCodes.Eq || isEndOfTagSection(c)) {
       this.cbs.ondirarg(this.sectionStart, this.index)
       this.handleAttrNameEnd(c)
-    } else if (c === CharCodes.LeftSquare) {
+    } else if (c === CharCodes.LeftSquare) {// 动态指令，比如v-bind:[param]
       this.state = State.InDirDynamicArg
-    } else if (c === CharCodes.Dot) {
+    } else if (c === CharCodes.Dot) { // 遇到.，进入指令的修饰符，比如v-on@click.sync 
       this.cbs.ondirarg(this.sectionStart, this.index)
       this.state = State.InDirModifier
       this.sectionStart = this.index + 1
@@ -787,7 +791,7 @@ export default class Tokenizer {
   private stateAfterAttrName(c: number): void {
     if (c === CharCodes.Eq) { // 遇到等于号，比如v-for="xxx"，进入属性值解析
       this.state = State.BeforeAttrValue
-    } else if (c === CharCodes.Slash || c === CharCodes.Gt) {
+    } else if (c === CharCodes.Slash || c === CharCodes.Gt) { //遇到>或者/>说明只有属性key，没有设置属性value
       this.cbs.onattribend(QuoteType.NoValue, this.sectionStart)
       this.sectionStart = -1
       this.state = State.BeforeAttrName
@@ -812,9 +816,14 @@ export default class Tokenizer {
       this.stateInAttrValueNoQuotes(c) // Reconsume token
     }
   }
+  // 处理属性值
   private handleInAttrValue(c: number, quote: number) {
+    /**属性值获取回溯
+     * 比如双引号，quote就是双引号，而c是引号里面的第一个字符。要把整个属性值都获取
+     * 通过fastForwartTo方法，找到下一个双引号，让index定位到下一个双引号
+     */
     if (c === quote || (__BROWSER__ && this.fastForwardTo(quote))) {
-      this.cbs.onattribdata(this.sectionStart, this.index)
+      this.cbs.onattribdata(this.sectionStart, this.index) // 因为index通过fastForwardTo方法定位到匹配的双引号了，sectionStart和index之间的值就是属性值
       this.sectionStart = -1
       this.cbs.onattribend(
         quote === CharCodes.DoubleQuote ? QuoteType.Double : QuoteType.Single,
@@ -822,7 +831,7 @@ export default class Tokenizer {
       )
       this.state = State.BeforeAttrName // 属性值解析过后，再次进入属性名的解析
     } else if (!__BROWSER__ && c === CharCodes.Amp) { // 实体解析
-      this.startEntity()
+      this.startEntity() 
     }
   }
   // 双引号属性值解析
@@ -1105,7 +1114,7 @@ export default class Tokenizer {
       }
       this.index++
     }
-    this.cleanup()
+    this.cleanup() // 清零工作
     this.finish()
   }
 
@@ -1114,9 +1123,9 @@ export default class Tokenizer {
    */
   private cleanup() {
     // If we are inside of text or attributes, emit what we already have.
-    if (this.sectionStart !== this.index) {
+    if (this.sectionStart !== this.index) { // 如果sectionStart和index不相同，说明还有状态没有处理完
       if (
-        this.state === State.Text ||
+        this.state === State.Text || //最后文本没有处理完
         (this.state === State.InRCDATA && this.sequenceIndex === 0)
       ) {
         this.cbs.ontext(this.sectionStart, this.index)
@@ -1132,6 +1141,7 @@ export default class Tokenizer {
     }
   }
 
+  // 处理尾部
   private finish() {
     if (!__BROWSER__ && this.state === State.InEntity) {
       this.entityDecoder!.end()
@@ -1152,12 +1162,14 @@ export default class Tokenizer {
       return
     }
 
+    // 处理注释节点
     if (this.state === State.InCommentLike) {
       if (this.currentSequence === Sequences.CdataEnd) {
         this.cbs.oncdata(this.sectionStart, endIndex)
       } else {
         this.cbs.oncomment(this.sectionStart, endIndex)
       }
+      //如果是书写错误，有一些没有完结的节点统一当成文本节点处理
     } else if (
       this.state === State.InTagName ||
       this.state === State.BeforeAttrName ||
