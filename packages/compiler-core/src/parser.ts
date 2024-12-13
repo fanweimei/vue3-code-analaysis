@@ -104,25 +104,26 @@ const tokenizer = new Tokenizer(stack, {
   ontext(start, end) {
     onText(getSlice(start, end), start, end)
   },
-
+  // 实体处理
   ontextentity(char, start, end) {
     onText(char, start, end)
   },
 
+  //插值处理
   oninterpolation(start, end) {
     if (inVPre) {
       return onText(getSlice(start, end), start, end)
     }
-    let innerStart = start + tokenizer.delimiterOpen.length
-    let innerEnd = end - tokenizer.delimiterClose.length
-    while (isWhitespace(currentInput.charCodeAt(innerStart))) {
+    let innerStart = start + tokenizer.delimiterOpen.length // {{后面的第一个字符
+    let innerEnd = end - tokenizer.delimiterClose.length //}}前面的最后一个支付
+    while (isWhitespace(currentInput.charCodeAt(innerStart))) { //去掉两边的空白
       innerStart++
     }
     while (isWhitespace(currentInput.charCodeAt(innerEnd - 1))) {
       innerEnd--
     }
     let exp = getSlice(innerStart, innerEnd)
-    // decode entities for backwards compat
+    // decode entities for backwards compat 插值中如果有&，依然要处理实体
     if (exp.includes('&')) {
       if (__BROWSER__) {
         exp = currentOptions.decodeEntities!(exp, false)
@@ -130,6 +131,7 @@ const tokenizer = new Tokenizer(stack, {
         exp = decodeHTML(exp)
       }
     }
+    //创建一个插值节点，内容就是插值的表达式，结构跟文本节点类似，只是type是INTERPOLATION
     addNode({
       type: NodeTypes.INTERPOLATION,
       content: createExp(exp, false, getLoc(innerStart, innerEnd)),
@@ -207,6 +209,7 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 普通属性节点
   onattribname(start, end) {
     // plain attribute
     currentProp = {
@@ -222,11 +225,11 @@ const tokenizer = new Tokenizer(stack, {
   ondirname(start, end) {
     const raw = getSlice(start, end)
     const name =
-      raw === '.' || raw === ':' // .或者：开头说明是绑定变量，比如:name="xx"
+      raw === '.' || raw === ':' // .或者：开头说明是绑定变量，比如:name="xx" ，：其实就是v-bind的简写
         ? 'bind'
-        : raw === '@' // @开头，说明是事件绑定，比如@click
+        : raw === '@' // @开头，说明是事件绑定，比如@click @符号是v-on的简写
           ? 'on'
-          : raw === '#' // #开头，说明是插槽，比如:#slot
+          : raw === '#' // #开头，说明是插槽，比如:#slot #是v-slot的简写
             ? 'slot'
             : raw.slice(2) // 否则就是其它指令，vue默认指令格式v-开头，所以截取两个字符
 
@@ -266,6 +269,7 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 指令参数解析，比如v-bind:id，解析出id值
   ondirarg(start, end) {
     if (start === end) return
     const arg = getSlice(start, end)
@@ -273,8 +277,8 @@ const tokenizer = new Tokenizer(stack, {
       ;(currentProp as AttributeNode).name += arg
       setLocEnd((currentProp as AttributeNode).nameLoc, end)
     } else {
-      const isStatic = arg[0] !== `[`
-      ;(currentProp as DirectiveNode).arg = createExp(
+      const isStatic = arg[0] !== `[` //如果是[开头说明是动态的
+      ;(currentProp as DirectiveNode).arg = createExp( // 更新当前指令属性比如v-bind的arg，创建一个表达式
         isStatic ? arg : arg.slice(1, -1),
         isStatic,
         getLoc(start, end),
@@ -301,8 +305,10 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 记录当前属性节点的属性值
   onattribdata(start, end) {
     currentAttrValue += getSlice(start, end)
+    // 属性值开始位置和结束位置，用来计算prop的位置，每次计算一个currentProp的时候，都会重置为-1
     if (currentAttrStartIndex < 0) currentAttrStartIndex = start
     currentAttrEndIndex = end
   },
@@ -313,6 +319,7 @@ const tokenizer = new Tokenizer(stack, {
     currentAttrEndIndex = end
   },
 
+  // 属性名状态解析结束
   onattribnameend(end) {
     const start = currentProp!.loc.start.offset
     const name = getSlice(start, end)
@@ -328,25 +335,26 @@ const tokenizer = new Tokenizer(stack, {
       emitError(ErrorCodes.DUPLICATE_ATTRIBUTE, start)
     }
   },
-
+  // 属性结束处理，属性名和属性值都读取完毕
   onattribend(quote, end) {
     if (currentOpenTag && currentProp) {
       // finalize end pos 完善整个prop的路径，比如完整的，应该是v-for="branch in branches"
       setLocEnd(currentProp.loc, end)
 
       if (quote !== QuoteType.NoValue) { // 没有引号的可能是boolean或者number类型，如果是字符串类型肯定是有引号的，所以需要处理实体（属性值里面需要处理实体）
-        if (__BROWSER__ && currentAttrValue.includes('&')) {
+        if (__BROWSER__ && currentAttrValue.includes('&')) { // 如果属性值中包含实体，处理实体
           currentAttrValue = currentOptions.decodeEntities!(
             currentAttrValue,
             true,
           )
         }
 
-        if (currentProp.type === NodeTypes.ATTRIBUTE) {
+        if (currentProp.type === NodeTypes.ATTRIBUTE) { // 普通属性的处理
           // assign value 处理属性
 
           // condense whitespaces in class
-          if (currentProp!.name === 'class') {
+          // 处理class，class可能会有多个样式类，书写的时候会有多余空白，去掉多余空白，让样式类之间只有一个空白符
+          if (currentProp!.name === 'class') { // class 
             currentAttrValue = condense(currentAttrValue).trim()
           }
 
@@ -375,7 +383,7 @@ const tokenizer = new Tokenizer(stack, {
           }
         } else {
           // directive 处理指令
-          let expParseMode = ExpParseMode.Normal
+          let expParseMode = ExpParseMode.Normal // 指令处理，指令的属性值是一个表达式
           if (!__BROWSER__) {
             if (currentProp.name === 'for') {
               expParseMode = ExpParseMode.Skip
@@ -396,7 +404,8 @@ const tokenizer = new Tokenizer(stack, {
             ConstantTypes.NOT_CONSTANT,
             expParseMode,
           )
-          if (currentProp.name === 'for') {
+          if (currentProp.name === 'for') { // 如果是v-for指令，还需要解析表达式
+            // in前面的部分再创建一个表达式source，in后面的部分创建表达式value
             currentProp.forParseResult = parseForExpression(currentProp.exp)
           }
           // 2.x compat v-bind:foo.sync -> v-model:foo
@@ -418,7 +427,7 @@ const tokenizer = new Tokenizer(stack, {
         }
       }
       if (
-        currentProp.type !== NodeTypes.DIRECTIVE ||
+        currentProp.type !== NodeTypes.DIRECTIVE || // 如果没有属性值的，那就把当前的属性对象currentProp加入到当前节点原生的props数组中
         currentProp.name !== 'pre'
       ) {
         currentOpenTag.props.push(currentProp)
@@ -438,9 +447,10 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  // 所有节点处理完毕后的收尾工作
   onend() {
     const end = currentInput.length
-    // EOF ERRORS
+    // EOF ERRORS，比如书写不规范，那最后一种状态不是回到了Text状态，给出错误提示
     if ((__DEV__ || !__BROWSER__) && tokenizer.state !== State.Text) {
       switch (tokenizer.state) {
         case State.BeforeTagName:
@@ -482,6 +492,7 @@ const tokenizer = new Tokenizer(stack, {
           break
       }
     }
+    //存在某些节点没有闭合，给出错误提示
     for (let index = 0; index < stack.length; index++) {
       onCloseTag(stack[index], end - 1)
       emitError(ErrorCodes.X_MISSING_END_TAG, stack[index].loc.start.offset)
@@ -512,6 +523,7 @@ const tokenizer = new Tokenizer(stack, {
 const forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/
 const stripParensRE = /^\(|\)$/g
 
+// 对表示解析
 function parseForExpression(
   input: SimpleExpressionNode,
 ): ForParseResult | undefined {
@@ -520,7 +532,7 @@ function parseForExpression(
   const inMatch = exp.match(forAliasRE)
   if (!inMatch) return
 
-  const [, LHS, RHS] = inMatch
+  const [, LHS, RHS] = inMatch // LHS是in前面的部分，RHS是in后面的部分，比如(item, index) in list ，那么LHS是(item, index) RHS是list
 
   const createAliasExpression = (
     content: string,
@@ -1078,9 +1090,9 @@ function reset() {
 
 // options就是上下文
 export function baseParse(input: string, options?: ParserOptions): RootNode {
-  reset()
-  currentInput = input
-  currentOptions = extend({}, defaultParserOptions)
+  reset() // 重置状态
+  currentInput = input //模板文本
+  currentOptions = extend({}, defaultParserOptions) //参数
 
   if (options) {
     let key: keyof ParserOptions
@@ -1105,6 +1117,7 @@ export function baseParse(input: string, options?: ParserOptions): RootNode {
     }
   }
 
+  // 状态机的运行模式
   tokenizer.mode =
     currentOptions.parseMode === 'html'
       ? ParseMode.HTML
@@ -1116,6 +1129,7 @@ export function baseParse(input: string, options?: ParserOptions): RootNode {
     currentOptions.ns === Namespaces.SVG ||
     currentOptions.ns === Namespaces.MATH_ML
 
+    //插值符号，默认是用{{}}
   const delimiters = options?.delimiters
   if (delimiters) {
     tokenizer.delimiterOpen = toCharCodes(delimiters[0])
@@ -1124,9 +1138,13 @@ export function baseParse(input: string, options?: ParserOptions): RootNode {
 
   // 创建一个根节点，children就是用来存放解析模板后的元素
   const root = (currentRoot = createRoot([], input))
+  //解析整个模板，通过状态机tokenizer对象，以及具体节点在parse中出，html模板就会转成AST树结构
   tokenizer.parse(currentInput)
+  // 计算根节点的位置
   root.loc = getLoc(0, input.length)
+  //把根节点前后多余的空白内容去掉
   root.children = condenseWhitespace(root.children)
   currentRoot = null
+  // 返回ast树
   return root
 }
