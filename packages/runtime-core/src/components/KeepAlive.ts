@@ -132,6 +132,14 @@ const KeepAliveImpl: ComponentOptions = {
     // 创建一个隐藏容器
     const storageContainer = createElement('div')
 
+    /**
+
+     * 1、第一次打开页面，挂载的时候，设置COMPONENT_SHOULD_KEEP_ALIVE，
+     * 2、执行组件的mountComponent函数（n1为null），在componentUpdateFn函数中，isMounted为false，执行onMount钩子函数、onActivated钩子函数
+     * 3、执行onActivated钩子注册函数
+     * 3、第二次打开tab的时候激活页面，在keepalive的render函数中设置COMPONENT_KEPT_ALIVE
+     * 4、进入组件的processComponent函数（n1），执行  ;(parentComponent!.ctx as KeepAliveContext).activate(...)方法，进而执行onAcitvated钩子函数。
+     */
     sharedContext.activate = (
       vnode,
       container,
@@ -177,7 +185,7 @@ const KeepAliveImpl: ComponentOptions = {
       // 失活的本质就是将组件所渲染的内容移动到隐藏容器中
       move(vnode, storageContainer, null, MoveType.LEAVE, parentSuspense)
       queuePostRenderEffect(() => {
-        // deactivated钩子函数
+        // deactivated钩子函数, 然后执行unmounted钩子函数
         if (instance.da) {
           invokeArrayFns(instance.da)
         }
@@ -200,6 +208,7 @@ const KeepAliveImpl: ComponentOptions = {
       _unmount(vnode, instance, parentSuspense, true)
     }
 
+    // 关闭tab的时候，移除include的换成，移除的时候就会执行这里的unmount，先重置shapeflag，然后再unmount
     function pruneCache(filter?: (name: string) => boolean) {
       cache.forEach((vnode, key) => {
         const name = getComponentName(vnode.type as ConcreteComponent)
@@ -425,6 +434,7 @@ function matches(pattern: MatchPattern, name: string): boolean {
   return false
 }
 
+// 这个onActivated钩子注册函数，会将子组件的钩子函数，挂载到keep-alive的根组件下。所以所有onActivate注册的函数都会随着根组件激活后一并执行
 export function onActivated(
   hook: Function,
   target?: ComponentInternalInstance | null,

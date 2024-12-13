@@ -1187,8 +1187,9 @@ function baseCreateRenderer(
     optimized: boolean,
   ) => {
     n2.slotScopeIds = slotScopeIds
+    // 如果是keep-alive下的组件，第二次切换tab到页面的时候，n1也是null，只有在同一个页面下操作，n1才不是空。第一次挂载页面（第一次打开tab的时候），
     if (n1 == null) {
-      // 如果是keep-alive的模式，则是激活组件
+      // 如果是keep-alive的模式，则是激活组件，第一次挂载组件的时候，
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
         ;(parentComponent!.ctx as KeepAliveContext).activate(
           n2,
@@ -1419,6 +1420,19 @@ function baseCreateRenderer(
             startMeasure(instance, `patch`)
           }
           // 挂载根节点
+          // 这里完成递归，从父组件到子组件，子组件先完成mounted
+          /**
+           * 生命周期执行顺序为：
+           * parent setup
+           * parent beforeMount
+           * child setup
+           * child beforeMount
+           * child mounted
+           * parent mounted
+           * child activated
+           * parent activated
+           * （因为activated钩子函数都挂载到了keep-alive根组件下再执行，按注册的顺序执行）
+           */
           patch(
             null,
             subTree,
@@ -1468,6 +1482,8 @@ function baseCreateRenderer(
         // #1742 activated hook must be accessed after first render
         // since the hook may be injected by a child keep-alive 
         // 在KeepAlive组件中标志了COMPONENT_SHOULD_KEEP_ALIVE，或者父组件是异步组件也标志了COMPONENT_SHOULD_KEEP_ALIVE，执行组件activated钩子函数
+        // 先执行父组件KeepAliveImpl的render函数，这个时候组件的shapeFlag已经标志了COMPONENT_SHOULD_KEEP_ALIVE
+        // 组件第一个挂载的时候，会先执行onMount钩子函数，再执行onActivated钩子函数
         if (
           initialVNode.shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE ||
           (parent &&
@@ -2200,6 +2216,7 @@ function baseCreateRenderer(
       setRef(ref, null, parentSuspense, vnode, true)
     }
 
+    // 不是真的卸载而是deactivate
     if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
       ;(parentComponent!.ctx as KeepAliveContext).deactivate(vnode)
       return
@@ -2216,6 +2233,7 @@ function baseCreateRenderer(
       invokeVNodeHook(vnodeHook, parentComponent, vnode)
     }
 
+    // 如果是component，就卸载组件，执行unmountComponent方法
     if (shapeFlag & ShapeFlags.COMPONENT) {
       unmountComponent(vnode.component!, parentSuspense, doRemove)
     } else {
