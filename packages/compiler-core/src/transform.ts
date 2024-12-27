@@ -157,7 +157,7 @@ export function createTransformContext(
     hoistStatic,
     hmr,
     cacheHandlers,
-    nodeTransforms,
+    nodeTransforms, // 数组，节点转换函数
     directiveTransforms,
     transformHoist,
     isBuiltInComponent,
@@ -193,7 +193,7 @@ export function createTransformContext(
       vOnce: 0,
     },
     parent: null,
-    currentNode: root,
+    currentNode: root, // 当前正在处理的节点
     childIndex: 0,
     inVOnce: false,
 
@@ -317,6 +317,7 @@ export function createTransformContext(
 }
 
 export function transform(root: RootNode, options: TransformOptions) {
+  // 上下文
   const context = createTransformContext(root, options)
   traverseNode(root, context)
   if (options.hoistStatic) {
@@ -416,8 +417,17 @@ export function traverseNode(
   // apply transform plugins
   const { nodeTransforms } = context
   const exitFns = []
-  for (let i = 0; i < nodeTransforms.length; i++) {
-    const onExit = nodeTransforms[i](node, context)
+  for (let i = 0; i < nodeTransforms.length; i++) { // 循环所有节点处理函数，让当前节点经过所有节点处理函数处理
+    /**
+     * 分为两个阶段：
+     * （1）进入阶段
+     * （2）退出阶段
+     * 从外到内（从父节点到子节点）依次执行进入阶段，从内到外（从子节点到父节点）依次执行退出阶段
+     * template ast -> javascript ast，需要在退出阶段执行，确保子节点都已经处理完了
+     * 
+     * 每个节点都会执行一遍nodeTransforms数组中的函数，
+     */
+    const onExit = nodeTransforms[i](node, context) // 是否有返回函数
     if (onExit) {
       if (isArray(onExit)) {
         exitFns.push(...onExit)
@@ -427,10 +437,11 @@ export function traverseNode(
     }
     if (!context.currentNode) {
       // node was removed
+      // 如果节点经过处理后发现被删除了，就直接返回
       return
     } else {
       // node may have been replaced
-      node = context.currentNode
+      node = context.currentNode // 有可能在经过nodeTransforms处理的过程中，当前节点被替换了
     }
   }
 
@@ -471,6 +482,7 @@ export function traverseNode(
   }
 }
 
+// 指令的通用方法
 export function createStructuralDirectiveTransform(
   name: string | RegExp,
   fn: StructuralDirectiveTransform,
