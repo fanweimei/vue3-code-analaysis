@@ -50,6 +50,7 @@ const isLiteralWhitelisted = /*#__PURE__*/ makeMap('true,false,null,this')
 // likely function invocation and member access
 const constantBailRE = /\w\s*\(|\.[^\d]/
 
+// 解析表达式
 export const transformExpression: NodeTransform = (node, context) => {
   if (node.type === NodeTypes.INTERPOLATION) {
     node.content = processExpression(

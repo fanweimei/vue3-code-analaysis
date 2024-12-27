@@ -216,10 +216,10 @@ export interface DirectiveNode extends Node {
  * can always be hoisted and skipped for patch.
  */
 export enum ConstantTypes {
-  NOT_CONSTANT = 0,
-  CAN_SKIP_PATCH,
-  CAN_HOIST,
-  CAN_STRINGIFY,
+  NOT_CONSTANT = 0, // not_constant 非常量
+  CAN_SKIP_PATCH, // can_skip_patch 可以不用patch
+  CAN_HOIST, // can_hoist 可以静态提升
+  CAN_STRINGIFY, // can_stringify 可以字符串化
 }
 
 export interface SimpleExpressionNode extends Node {

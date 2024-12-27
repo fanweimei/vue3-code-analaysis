@@ -100,6 +100,7 @@ export function baseCompile(
     }
   }
 
+  // 先转换
   transform(
     ast,
     extend({}, resolvedOptions, {
@@ -115,5 +116,6 @@ export function baseCompile(
     }),
   )
 
+  // 再生成render函数
   return generate(ast, resolvedOptions)
 }

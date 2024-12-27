@@ -5,6 +5,7 @@ import { SET_BLOCK_TRACKING } from '../runtimeHelpers'
 
 const seen = new WeakSet()
 
+// v-once指令处理
 export const transformOnce: NodeTransform = (node, context) => {
   if (node.type === NodeTypes.ELEMENT && findDir(node, 'once', true)) {
     if (seen.has(node) || context.inVOnce || context.inSSR) {

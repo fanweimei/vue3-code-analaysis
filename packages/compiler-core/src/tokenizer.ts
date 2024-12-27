@@ -173,10 +173,10 @@ export function toCharCodes(str: string): Uint8Array {
 }
 
 export enum QuoteType {
-  NoValue = 0,
-  Unquoted = 1,
-  Single = 2,
-  Double = 3,
+  NoValue = 0, // 没有值
+  Unquoted = 1, //有值但是没有引号
+  Single = 2, // 单引号
+  Double = 3, //双引号
 }
 
 export interface Callbacks {

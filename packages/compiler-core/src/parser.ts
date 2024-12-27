@@ -401,7 +401,7 @@ const tokenizer = new Tokenizer(stack, {
             currentAttrValue,
             false,
             getLoc(currentAttrStartIndex, currentAttrEndIndex),
-            ConstantTypes.NOT_CONSTANT,
+            ConstantTypes.NOT_CONSTANT, // 非静态内容
             expParseMode,
           )
           if (currentProp.name === 'for') { // 如果是v-for指令，还需要解析表达式
@@ -1026,8 +1026,8 @@ function dirToAttr(dir: DirectiveNode): AttributeNode {
 
 enum ExpParseMode {
   Normal,
-  Params,
-  Statements,
+  Params, // 参数
+  Statements, // 陈述句
   Skip,
 }
 
@@ -1035,7 +1035,7 @@ function createExp(
   content: SimpleExpressionNode['content'],
   isStatic: SimpleExpressionNode['isStatic'] = false,
   loc: SourceLocation,
-  constType: ConstantTypes = ConstantTypes.NOT_CONSTANT,
+  constType: ConstantTypes = ConstantTypes.NOT_CONSTANT, // not constant
   parseMode = ExpParseMode.Normal,
 ) {
   const exp = createSimpleExpression(content, isStatic, loc, constType)

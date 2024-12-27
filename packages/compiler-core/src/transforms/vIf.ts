@@ -33,6 +33,7 @@ import { CREATE_COMMENT, FRAGMENT } from '../runtimeHelpers'
 import { findDir, findProp, getMemoedVNodeCall, injectProp } from '../utils'
 import { PatchFlagNames, PatchFlags } from '@vue/shared'
 
+// v-if
 export const transformIf = createStructuralDirectiveTransform(
   /^(if|else|else-if)$/,
   (node, dir, context) => {
