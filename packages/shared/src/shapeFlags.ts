@@ -7,7 +7,7 @@ export enum ShapeFlags {
   SLOTS_CHILDREN = 1 << 5, // 插槽子节点
   TELEPORT = 1 << 6, // 表示传送门节点
   SUSPENSE = 1 << 7, //悬挂节点
-  COMPONENT_SHOULD_KEEP_ALIVE = 1 << 8,
-  COMPONENT_KEPT_ALIVE = 1 << 9,
+  COMPONENT_SHOULD_KEEP_ALIVE = 1 << 8, // 只要是keep-alive下的根子组件，访问了就会被设置
+  COMPONENT_KEPT_ALIVE = 1 << 9, // keep-alive下的根组件再次访问的时候被设置
   COMPONENT = ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT,
 }

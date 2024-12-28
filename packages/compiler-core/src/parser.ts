@@ -68,8 +68,8 @@ export type MergedParserOptions = Omit<
 export const defaultParserOptions: MergedParserOptions = {
   parseMode: 'base',
   ns: Namespaces.HTML,
-  delimiters: [`{{`, `}}`],
-  getNamespace: () => Namespaces.HTML,
+  delimiters: [`{{`, `}}`], // 插值分隔符
+  getNamespace: () => Namespaces.HTML, //命名空间
   isVoidTag: NO,
   isPreTag: NO,
   isCustomElement: NO,
@@ -200,6 +200,7 @@ const tokenizer = new Tokenizer(stack, {
     }
   },
 
+  //半闭合标签
   onselfclosingtag(end) {
     const name = currentOpenTag!.tag
     currentOpenTag!.isSelfClosing = true
