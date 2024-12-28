@@ -48,6 +48,7 @@ import { processExpression } from './transformExpression'
 import { validateBrowserExpression } from '../validateExpression'
 import { PatchFlagNames, PatchFlags } from '@vue/shared'
 
+// v-for
 export const transformFor = createStructuralDirectiveTransform(
   'for',
   (node, dir, context) => {

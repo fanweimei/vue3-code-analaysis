@@ -13,6 +13,7 @@ import { WITH_MEMO } from '../runtimeHelpers'
 
 const seen = new WeakSet()
 
+//指令v-memo
 export const transformMemo: NodeTransform = (node, context) => {
   if (node.type === NodeTypes.ELEMENT) {
     const dir = findDir(node, 'memo')

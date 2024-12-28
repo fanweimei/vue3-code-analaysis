@@ -69,6 +69,7 @@ import {
 // import, which should be used instead of a resolveDirective call.
 const directiveImportMap = new WeakMap<DirectiveNode, symbol>()
 
+// transform element
 // generate a JavaScript AST for this element's codegen
 export const transformElement: NodeTransform = (node, context) => {
   // perform the work on exit, after all child expressions have been
