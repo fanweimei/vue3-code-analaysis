@@ -409,6 +409,7 @@ export function traverseChildren(
   }
 }
 
+
 export function traverseNode(
   node: RootNode | TemplateChildNode,
   context: TransformContext,

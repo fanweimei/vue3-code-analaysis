@@ -119,7 +119,7 @@ export const transformElement: NodeTransform = (node, context) => {
         // leads to too much unnecessary complexity.
         (tag === 'svg' || tag === 'foreignObject'))
 
-    // props
+    // props 处理
     if (props.length > 0) {
       const propsBuildResult = buildProps(
         node,
@@ -185,7 +185,7 @@ export const transformElement: NodeTransform = (node, context) => {
         const type = child.type
         // check for dynamic text children
         const hasDynamicTextChild =
-          type === NodeTypes.INTERPOLATION ||
+          type === NodeTypes.INTERPOLATION || // 如果是插值文本节点，标志patchFlag
           type === NodeTypes.COMPOUND_EXPRESSION
         if (
           hasDynamicTextChild &&
@@ -228,7 +228,7 @@ export const transformElement: NodeTransform = (node, context) => {
         vnodeDynamicProps = stringifyDynamicPropNames(dynamicPropNames)
       }
     }
-
+    // 创建vnode call
     node.codegenNode = createVNodeCall(
       context,
       vnodeTag,
@@ -551,6 +551,7 @@ export function buildProps(
       const isVOn = name === 'on'
 
       // skip v-slot - it is handled by its dedicated transform.
+      // v-slot
       if (name === 'slot') {
         if (!isComponent) {
           context.onError(
@@ -560,6 +561,7 @@ export function buildProps(
         continue
       }
       // skip v-once/v-memo - they are handled by dedicated transforms.
+      // v-once/v-memo
       if (name === 'once' || name === 'memo') {
         continue
       }
@@ -682,6 +684,7 @@ export function buildProps(
       const directiveTransform = context.directiveTransforms[name]
       if (directiveTransform) {
         // has built-in directive transform.
+        // 处理指令
         const { props, needRuntime } = directiveTransform(prop, node, context)
         !ssr && props.forEach(analyzePatchFlag)
         if (isVOn && arg && !isStaticExp(arg)) {
