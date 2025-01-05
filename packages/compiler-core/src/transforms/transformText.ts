@@ -31,11 +31,11 @@ export const transformText: NodeTransform = (node, context) => {
 
       for (let i = 0; i < children.length; i++) {
         const child = children[i]
-        if (isText(child)) {
+        if (isText(child)) { // 如果连着有多个文本节点或者插值文本节点，就将节点合并成一个节点，节点类型为NodeTypes.COMPOUND_EXPRESSION
           hasText = true
           for (let j = i + 1; j < children.length; j++) {
             const next = children[j]
-            if (isText(next)) {
+            if (isText(next)) { 
               if (!currentContainer) {
                 currentContainer = children[i] = createCompoundExpression(
                   [child],
@@ -103,6 +103,7 @@ export const transformText: NodeTransform = (node, context) => {
                 (__DEV__ ? ` /* ${PatchFlagNames[PatchFlags.TEXT]} */` : ``),
             )
           }
+          // 多个文本节点的话，代码生成的函数
           children[i] = {
             type: NodeTypes.TEXT_CALL,
             content: child,
