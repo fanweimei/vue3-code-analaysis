@@ -52,16 +52,20 @@ const constantBailRE = /\w\s*\(|\.[^\d]/
 
 // 解析表达式
 export const transformExpression: NodeTransform = (node, context) => {
+  // 是否是插值节点
   if (node.type === NodeTypes.INTERPOLATION) {
+    // 插值节点就直接把内容作为一个表达式处理
     node.content = processExpression(
       node.content as SimpleExpressionNode,
       context,
     )
   } else if (node.type === NodeTypes.ELEMENT) {
+    // 如果Element节点类型
     // handle directives on element
     for (let i = 0; i < node.props.length; i++) {
       const dir = node.props[i]
       // do not process for v-on & v-for since they are special handled
+      // 处理元素上的指令对应的表达式，v-for和v-on除外（在单独的文件特殊处理），其它指令，把值和参数作为表达式处理
       if (dir.type === NodeTypes.DIRECTIVE && dir.name !== 'for') {
         const exp = dir.exp
         const arg = dir.arg

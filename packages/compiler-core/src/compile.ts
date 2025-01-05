@@ -30,7 +30,19 @@ export type TransformPreset = [
 
 export function getBaseTransformPreset(
   prefixIdentifiers?: boolean,
-): TransformPreset {
+): TransformPreset { 
+  /**
+   * 处理的顺序：
+   * ①、v-once
+   * ②、v-if
+   * ③、v-memo
+   * ④、v-for
+   * ⑤、处理元素节点上的指令对应的表达式（v-for、v-on除外）
+   * ⑥、slot节点
+   * ⑦、Element元素节点
+   * ⑧、处理element元素节点上的v-slot指令
+   * ⑨、Text文本节点
+   */
   return [
     [
       transformOnce,

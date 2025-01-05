@@ -14,6 +14,9 @@ import { parseStringStyle } from '@vue/shared'
 // style="color: red" -> :style='{ "color": "red" }'
 // It is then processed by `transformElement` and included in the generated
 // props.
+/**
+ * 如果Element节点上有style树形，就转为指令v-bind:style这种指令的形式，相当于把静态的style转为动态的
+ */
 export const transformStyle: NodeTransform = node => {
   if (node.type === NodeTypes.ELEMENT) {
     node.props.forEach((p, i) => {

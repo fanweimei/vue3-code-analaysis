@@ -71,6 +71,7 @@ const directiveImportMap = new WeakMap<DirectiveNode, symbol>()
 
 // transform element
 // generate a JavaScript AST for this element's codegen
+// 元素节点的转换，只有退出函数
 export const transformElement: NodeTransform = (node, context) => {
   // perform the work on exit, after all child expressions have been
   // processed and merged.

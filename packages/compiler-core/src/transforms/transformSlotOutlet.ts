@@ -14,7 +14,36 @@ import { RENDER_SLOT } from '../runtimeHelpers'
 import { camelize } from '@vue/shared'
 
 // slot
+/**
+ * 子节点：这里就是transformSlotOutlet处理
+ * <template>
+      <div>
+        <header>
+          <slot name="header">默认标题</slot>
+        </header>
+        <main>
+          <slot>默认内容</slot>
+        </main>
+        <footer>
+          <slot name="footer">默认页脚</slot>
+        </footer>
+      </div>
+    </template>
+
+    父节点：v-slot:header可以用#header来代替 这里是用vSlot处理
+    <template>
+      <child>
+        <template v-slot:header>
+          <h1>自定义标题</h1>
+        </template>
+        <template v-slot:footer>
+          <p>自定义页脚</p>
+        </template>
+      </child>
+    </template>
+ */
 export const transformSlotOutlet: NodeTransform = (node, context) => {
+  // 节点是否是slot
   if (isSlotOutlet(node)) {
     const { children, loc } = node
     const { slotName, slotProps } = processSlotOutlet(node, context)

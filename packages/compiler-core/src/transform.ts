@@ -195,9 +195,20 @@ export function createTransformContext(
     parent: null,
     currentNode: root, // 当前正在处理的节点
     childIndex: 0,
+    /**
+     * 表示当前处理的节点是否位于一个 v-once 指令作用域内。
+     * v-once 指令用于标记节点及其子节点只需渲染一次，之后可以直接复用缓存中的结果，而无需重新计算和渲染
+     * 当 inVOnce 为 true 时，编译器会特别处理当前节点，避免重复的计算和动态绑定。
+     * 在处理一个带有 v-once 的节点时，会将 inVOnce 设为 true，并在离开该节点时恢复为 false。
+     * 转换规则通常会根据这个标志调整代码生成逻辑，例如将节点的表达式提升为静态。
+     */
     inVOnce: false,
 
     // methods
+    /**
+     * helper 是一个方法，用于跟踪在代码生成过程中需要使用的编译助手函数
+     * 编译器生成的代码需要用到一些工具函数（例如 createVNode、openBlock 等）。helper 方法会记录这些函数的引用次数，确保只在需要时引入它们。
+     */
     helper(name) {
       const count = context.helpers.get(name) || 0
       context.helpers.set(name, count + 1)
@@ -401,7 +412,9 @@ export function traverseChildren(
   }
   for (; i < parent.children.length; i++) {
     const child = parent.children[i]
+    // 如果是文本就什么都不处理
     if (isString(child)) continue
+    // 更新当前上下文的parent，childIndex，递归遍历子节点，如果在处理过程，某个子节点删除了就会调用nodeRemoved方法，那i就会自动减一，保证索引下标值不会出错
     context.parent = parent
     context.childIndex = i
     context.onNodeRemoved = nodeRemoved
@@ -496,7 +509,7 @@ export function createStructuralDirectiveTransform(
     if (node.type === NodeTypes.ELEMENT) {
       const { props } = node
       // structural directive transforms are not concerned with slots
-      // as they are handled separately in vSlot.ts
+      // as they are handled separately in vSlot.ts  // v-slot不通用，在vSlot文件单独处理
       if (node.tagType === ElementTypes.TEMPLATE && props.some(isVSlot)) {
         return
       }
@@ -507,6 +520,9 @@ export function createStructuralDirectiveTransform(
           // structural directives are removed to avoid infinite recursion
           // also we remove them *before* applying so that it can further
           // traverse itself in case it moves the node around
+          // 如果是指令，进入对应指令处理函数中，有退出函数，就都放入exitFns数组，最终随节点退出函数一并返回，
+          // 遍历到这个节点的时候，会把这个节点上的指令都处理完毕（v-once和v-slot会单独处理）
+          // 指令的处理都是基于Element元素节点
           props.splice(i, 1)
           i--
           const onExit = fn(node, prop, context)

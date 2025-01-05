@@ -8,6 +8,7 @@ import {
 import { TRANSITION } from '../runtimeHelpers'
 import { DOMErrorCodes, createDOMCompilerError } from '../errors'
 
+// 对transition内置元素节点处理
 export const transformTransition: NodeTransform = (node, context) => {
   if (
     node.type === NodeTypes.ELEMENT &&
